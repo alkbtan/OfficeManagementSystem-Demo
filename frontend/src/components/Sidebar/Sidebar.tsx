@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+
 function Sidebar() {
   return (
     <div
@@ -9,13 +11,10 @@ function Sidebar() {
         minHeight: "100vh",
       }}
     >
-      Dashboard
-      <br />
-      Employees
-      <br />
-      Users
-      <br />
-      Departments
+      <p><Link to="/">Dashboard</Link></p>
+      <p><Link to="/employees">Employees</Link></p>
+      <p><Link to="/users">Users</Link></p>
+      <p><Link to="/login">Login</Link></p>
     </div>
   );
 }
