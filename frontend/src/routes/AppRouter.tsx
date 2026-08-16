@@ -12,7 +12,7 @@ import Inventory from "../pages/Inventory/Inventory";
 import ACs from "../pages/ACs/ACs";
 import Lockers from "../pages/Lockers/Lockers";
 import Procurement from "../pages/Procurement/Procurement";
-import Budget from "../pages/Budget/Budget";
+import BudgetPage from "../pages/Budget/Budget";
 import Events from "../pages/Events/Events";
 import Sports from "../pages/Sports/Sports";
 import Documents from "../pages/Documents/Documents";
@@ -38,7 +38,7 @@ function AppRouter() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
-        
+
         <Route
           path="/"
           element={
@@ -58,7 +58,7 @@ function AppRouter() {
           <Route path="acs" element={<ACs />} />
           <Route path="lockers" element={<Lockers />} />
           <Route path="procurement" element={<Procurement />} />
-          <Route path="budget" element={<Budget />} />
+          <Route path="budget" element={<BudgetPage />} />
           <Route path="events" element={<Events />} />
           <Route path="sports" element={<Sports />} />
           <Route path="documents" element={<Documents />} />

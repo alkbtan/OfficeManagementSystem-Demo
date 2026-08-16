@@ -1,47 +1,42 @@
-import { Component, ReactNode } from "react";
+import { Component } from "react";
+import type { ReactNode } from "react";
 
-interface Props {
+interface ErrorBoundaryProps {
   children: ReactNode;
 }
 
-interface State {
+interface ErrorBoundaryState {
   hasError: boolean;
-  error: Error | null;
 }
 
-class ErrorBoundary extends Component<Props, State> {
-  constructor(props: Props) {
+class ErrorBoundary extends Component<
+  ErrorBoundaryProps,
+  ErrorBoundaryState
+> {
+  constructor(props: ErrorBoundaryProps) {
     super(props);
-    this.state = { hasError: false, error: null };
+
+    this.state = {
+      hasError: false,
+    };
   }
 
-  static getDerivedStateFromError(error: Error): State {
-    return { hasError: true, error };
+  static getDerivedStateFromError(): ErrorBoundaryState {
+    return {
+      hasError: true,
+    };
   }
 
-  componentDidCatch(error: Error, errorInfo: any) {
-    console.error("Error caught by boundary:", error, errorInfo);
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error("ErrorBoundary caught an error:", error, errorInfo);
   }
 
   render() {
     if (this.state.hasError) {
       return (
-        <div style={{ padding: 20, color: "red" }}>
-          <h2>Something went wrong</h2>
-          <p>{this.state.error?.message}</p>
-          <button 
-            onClick={() => window.location.reload()}
-            style={{
-              padding: "10px 20px",
-              background: "#1976d2",
-              color: "white",
-              border: "none",
-              borderRadius: 4,
-              cursor: "pointer"
-            }}
-          >
-            Reload Page
-          </button>
+        <div style={{ padding: "40px", textAlign: "center" }}>
+          <h1>Something went wrong.</h1>
+          <p>Please refresh the page and try again.</p>
         </div>
       );
     }
