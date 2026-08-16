@@ -1,17 +1,25 @@
 import { createTheme } from "@mui/material/styles";
 
-const theme = createTheme({
-  palette: {
-    primary: {
-      main: "#1976d2",
+
+export const createAppTheme = (primaryColor: string = "#1976d2") => {
+  return createTheme({
+    palette: {
+      primary: {
+        main: primaryColor,
+      },
+      secondary: {
+        main: "#dc004e",
+      },
     },
-    secondary: {
-      main: "#00bcd4",
+    typography: {
+      fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
     },
-    background: {
-      default: "#f5f7fa",
+    shape: {
+      borderRadius: 8,
     },
-  },
-});
+  });
+};
+
+const theme = createAppTheme();
 
 export default theme;

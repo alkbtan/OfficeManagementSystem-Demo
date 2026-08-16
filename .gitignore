@@ -1,0 +1,29 @@
+# .NET
+**/bin/
+**/obj/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+
+# ASP.NET local configuration
+**/appsettings.json
+**/appsettings.Development.json
+**/appsettings.Local.json
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# Environment files
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
