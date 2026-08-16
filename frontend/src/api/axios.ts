@@ -1,20 +1,22 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "http://localhost:5149/api",
+  baseURL: "https://officemanagementsystem-demo.onrender.com/api",
   headers: {
     "Content-Type": "application/json",
   },
-  timeout: 30000, // 30 seconds timeout
+  timeout: 30000,
 });
 
 // Add token to every request
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("token");
+
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
     return config;
   },
   (error) => {
@@ -22,14 +24,16 @@ api.interceptors.request.use(
   }
 );
 
-// Handle 401 responses
+// Handle API responses
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     // Handle network errors
     if (!error.response) {
-      console.error("Network error - please check if backend is running");
-      return Promise.reject(new Error("Network error - please check if backend is running"));
+      console.error("Network error - please check the API connection");
+      return Promise.reject(
+        new Error("Network error - please check the API connection")
+      );
     }
 
     // Handle 401 Unauthorized
