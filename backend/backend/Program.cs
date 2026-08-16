@@ -48,7 +48,7 @@ builder.Services.AddAuthorization();
 // Add Controllers
 builder.Services.AddControllers();
 
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+// Configure Swagger/OpenAPI
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -97,6 +97,13 @@ app.UseAuthorization();
 
 app.MapControllers();
 
+// Apply database migrations
+using (var scope = app.Services.CreateScope())
+{
+    var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    context.Database.Migrate();
+}
+
 // Seed Data - Add default users if none exist
 using (var scope = app.Services.CreateScope())
 {
@@ -137,7 +144,7 @@ using (var scope = app.Services.CreateScope())
         );
 
         context.SaveChanges();
-        Console.WriteLine("✅ Default users seeded successfully!");
+        Console.WriteLine("Default users seeded successfully!");
     }
 
     // Check if Employees table has any data
@@ -157,7 +164,7 @@ using (var scope = app.Services.CreateScope())
         );
 
         context.SaveChanges();
-        Console.WriteLine("✅ Default employees seeded successfully!");
+        Console.WriteLine("Default employees seeded successfully!");
     }
 }
 
