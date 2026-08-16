@@ -52,8 +52,12 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
-    c.SwaggerDoc("v1", new OpenApiInfo { Title = "OfficeManagementAPI", Version = "v1" });
-    
+    c.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "OfficeManagementAPI",
+        Version = "v1"
+    });
+
     // Add JWT Authentication to Swagger
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
@@ -83,13 +87,8 @@ builder.Services.AddSwaggerGen(c =>
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
-
-app.UseHttpsRedirection();
+app.UseSwagger();
+app.UseSwaggerUI();
 
 app.UseCors("AllowAll");
 
@@ -102,61 +101,61 @@ app.MapControllers();
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    
+
     // Check if Users table has any data
     if (!context.Users.Any())
     {
         // Add default users
         context.Users.AddRange(
-            new User 
-            { 
-                Name = "Admin User", 
-                Email = "admin@example.com", 
-                Password = "admin123", 
-                Role = "Admin", 
-                Status = "Active", 
-                CreatedAt = DateTime.UtcNow 
+            new User
+            {
+                Name = "Admin User",
+                Email = "admin@example.com",
+                Password = "admin123",
+                Role = "Admin",
+                Status = "Active",
+                CreatedAt = DateTime.UtcNow
             },
-            new User 
-            { 
-                Name = "Mohammad Alshaar", 
-                Email = "mohammad@example.com", 
-                Password = "mohammad123", 
-                Role = "Manager", 
-                Status = "Active", 
-                CreatedAt = DateTime.UtcNow 
+            new User
+            {
+                Name = "Mohammad Alshaar",
+                Email = "mohammad@example.com",
+                Password = "mohammad123",
+                Role = "Manager",
+                Status = "Active",
+                CreatedAt = DateTime.UtcNow
             },
-            new User 
-            { 
-                Name = "Ahmed Ali", 
-                Email = "ahmed@example.com", 
-                Password = "ahmed123", 
-                Role = "User", 
-                Status = "Inactive", 
-                CreatedAt = DateTime.UtcNow 
+            new User
+            {
+                Name = "Ahmed Ali",
+                Email = "ahmed@example.com",
+                Password = "ahmed123",
+                Role = "User",
+                Status = "Inactive",
+                CreatedAt = DateTime.UtcNow
             }
         );
-        
+
         context.SaveChanges();
         Console.WriteLine("✅ Default users seeded successfully!");
     }
-    
+
     // Check if Employees table has any data
     if (!context.Employees.Any())
     {
         // Add default employees
         context.Employees.AddRange(
-            new Employee 
-            { 
-                FirstName = "Mohammad", 
-                LastName = "Alshaar", 
-                Email = "mohammad93shaar@yahoo.com", 
-                Department = "IT", 
-                Status = "Active", 
-                CreatedAt = DateTime.UtcNow 
+            new Employee
+            {
+                FirstName = "Mohammad",
+                LastName = "Alshaar",
+                Email = "mohammad93shaar@yahoo.com",
+                Department = "IT",
+                Status = "Active",
+                CreatedAt = DateTime.UtcNow
             }
         );
-        
+
         context.SaveChanges();
         Console.WriteLine("✅ Default employees seeded successfully!");
     }

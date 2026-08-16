@@ -19,22 +19,45 @@ public class DashboardController : ControllerBase
     public async Task<ActionResult<object>> GetStats()
     {
         var totalEmployees = await _context.Employees.CountAsync();
-        var departments = await _context.Employees.Select(e => e.Department).Distinct().CountAsync();
-        var activeEmployees = await _context.Employees.CountAsync(e => e.Status == "Active");
-        var inactiveEmployees = await _context.Employees.CountAsync(e => e.Status != "Active");
-        
-        var openTickets = await _context.Tickets.CountAsync(t => t.Status == "Open");
-        var purchaseRequests = await _context.ProcurementRequests.CountAsync(p => p.Status == "Pending");
-        var totalBudget = await _context.Budgets.SumAsync(b => b.Planned);
-        var spentBudget = await _context.Budgets.SumAsync(b => b.Spent);
-        
-        var pendingMaintenance = await _context.Tickets.CountAsync(t => t.Status != "Closed");
-        var acUnits = await _context.AirConditioners.CountAsync();
-        var totalLockers = await _context.Lockers.CountAsync();
-        var occupiedLockers = await _context.Lockers.CountAsync(l => l.Status == "Occupied");
-        var inventoryItems = await _context.InventoryItems.CountAsync();
-        
-        var totalEmployeesCount = 400; // يمكنك جلبها من قاعدة البيانات
+        var departments = await _context.Employees
+            .Select(e => e.Department)
+            .Distinct()
+            .CountAsync();
+
+        var activeEmployees = await _context.Employees
+            .CountAsync(e => e.Status == "Active");
+
+        var inactiveEmployees = await _context.Employees
+            .CountAsync(e => e.Status != "Active");
+
+        var openTickets = await _context.Tickets
+            .CountAsync(t => t.Status == "Open");
+
+        var purchaseRequests = await _context.ProcurementRequests
+            .CountAsync(p => p.Status == "Pending");
+
+        var totalBudget = await _context.Budgets
+            .SumAsync(b => b.Planned);
+
+        var spentBudget = await _context.Budgets
+            .SumAsync(b => b.Spent);
+
+        var pendingMaintenance = await _context.Tickets
+            .CountAsync(t => t.Status != "Closed");
+
+        var acUnits = await _context.AirConditioners
+            .CountAsync();
+
+        var totalLockers = await _context.Lockers
+            .CountAsync();
+
+        var occupiedLockers = await _context.Lockers
+            .CountAsync(l => l.Status == "Occupied");
+
+        var inventoryItems = await _context.InventoryItems
+            .CountAsync();
+
+        var totalEmployeesCount = totalEmployees;
 
         return Ok(new
         {
@@ -55,7 +78,9 @@ public class DashboardController : ControllerBase
             neededLockers = Math.Max(0, totalEmployeesCount - totalLockers),
             inventoryItems,
             totalEmployeesCount,
-            budgetUtilization = totalBudget > 0 ? (spentBudget / totalBudget) * 100 : 0
+            budgetUtilization = totalBudget > 0
+                ? (spentBudget / totalBudget) * 100
+                : 0
         });
     }
 
@@ -75,7 +100,11 @@ public class DashboardController : ControllerBase
             .Take(6)
             .ToListAsync();
 
-        var monthNames = new[] { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
+        var monthNames = new[]
+        {
+            "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+            "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+        };
 
         var result = expenses.Select(e => new
         {
@@ -102,7 +131,11 @@ public class DashboardController : ControllerBase
             .Take(6)
             .ToListAsync();
 
-        var monthNames = new[] { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
+        var monthNames = new[]
+        {
+            "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+            "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+        };
 
         var result = data.Select(d => new
         {
@@ -125,7 +158,7 @@ public class DashboardController : ControllerBase
                 Name = g.Key == "High" ? "AC" :
                        g.Key == "Medium" ? "Plumbing" :
                        g.Key == "Low" ? "Electrical" : "Other",
-                Cost = g.Count() * 1000 // Mock cost calculation
+                Cost = g.Count() * 1000
             })
             .ToListAsync();
 
