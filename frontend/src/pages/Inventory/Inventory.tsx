@@ -6,67 +6,68 @@ import {
   Card,
   CardContent,
   Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Chip,
   Button,
+  IconButton,
   CircularProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
   TextField,
-  InputAdornment,
+  MenuItem,
+  Snackbar,
+  Alert,
+  Chip,
   LinearProgress,
 } from "@mui/material";
-import SearchIcon from "@mui/icons-material/Search";
+import AddIcon from "@mui/icons-material/Add";
+import EditIcon from "@mui/icons-material/Edit";
+import DeleteIcon from "@mui/icons-material/Delete";
 import RefreshIcon from "@mui/icons-material/Refresh";
-import WarningIcon from "@mui/icons-material/Warning";
+import InventoryIcon from "@mui/icons-material/Inventory";
 import { inventoryService } from "../../services/inventoryService";
 import type { InventoryItem } from "../../services/inventoryService";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-} from "recharts";
 
 function Inventory() {
   const [items, setItems] = useState<InventoryItem[]>([]);
-  const [filteredItems, setFilteredItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [stats, setStats] = useState({
-    total: 0,
-    lowStock: 0,
-    categories: 0,
+  const [openDialog, setOpenDialog] = useState(false);
+  const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: "",
+    severity: "success" as "success" | "error",
   });
-  const [purchaseVsConsumption, setPurchaseVsConsumption] = useState<any[]>([]);
+
+  const categories = [
+    "Cleaning Supplies",
+    "Bathroom Supplies",
+    "Office Supplies",
+    "Cleaning Materials",
+    "Event Supplies",
+    "Kitchen Supplies"
+  ];
+
+  // ✅ Status is calculated automatically - no need for statuses array
+
+  const [formData, setFormData] = useState({
+    name: "",
+    category: "",
+    quantity: 0,
+    minStock: 0,
+    unit: "",
+    supplier: "",
+    purchaseDate: "",
+  });
 
   const loadData = async () => {
     try {
       setLoading(true);
-      const [itemsData, consumptionData] = await Promise.all([
-        inventoryService.getAll(),
-        inventoryService.getPurchaseVsConsumption(),
-      ]);
-      setItems(itemsData);
-      setFilteredItems(itemsData);
-      setPurchaseVsConsumption(consumptionData);
-      setStats({
-        total: itemsData.length,
-        lowStock: itemsData.filter((i) => i.quantity <= i.minStock).length,
-        categories: new Set(itemsData.map((i) => i.category)).size,
-      });
+      const data = await inventoryService.getAll();
+      setItems(data);
     } catch (error) {
       console.error("Error loading inventory:", error);
+      showSnackbar("Failed to load inventory", "error");
     } finally {
       setLoading(false);
     }
@@ -76,266 +77,366 @@ function Inventory() {
     loadData();
   }, []);
 
-  useEffect(() => {
-    const filtered = items.filter(
-      (item) =>
-        item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.category.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-    setFilteredItems(filtered);
-  }, [searchQuery, items]);
+  const showSnackbar = (message: string, severity: "success" | "error") => {
+    setSnackbar({ open: true, message, severity });
+  };
 
-  const getStatusColor = (item: InventoryItem) => {
-    if (item.quantity <= item.minStock) return "error";
-    if (item.quantity <= item.minStock * 1.5) return "warning";
-    return "success";
+  const handleOpenDialog = (item?: InventoryItem) => {
+    if (item) {
+      setEditingItem(item);
+      setFormData({
+        name: item.name || "",
+        category: item.category || "",
+        quantity: item.quantity || 0,
+        minStock: item.minStock || 0,
+        unit: item.unit || "",
+        supplier: item.supplier || "",
+        purchaseDate: item.purchaseDate ? item.purchaseDate.split("T")[0] : "",
+      });
+    } else {
+      setEditingItem(null);
+      setFormData({
+        name: "",
+        category: "",
+        quantity: 0,
+        minStock: 0,
+        unit: "",
+        supplier: "",
+        purchaseDate: "",
+      });
+    }
+    setOpenDialog(true);
+  };
+
+  const handleCloseDialog = () => {
+    setOpenDialog(false);
+    setEditingItem(null);
+  };
+
+  const handleSaveItem = async () => {
+    if (!formData.name.trim()) {
+      showSnackbar("Item Name is required", "error");
+      return;
+    }
+    if (!formData.category) {
+      showSnackbar("Category is required", "error");
+      return;
+    }
+    if (formData.quantity < 0) {
+      showSnackbar("Quantity cannot be negative", "error");
+      return;
+    }
+
+    try {
+      // ✅ Calculate status based on quantity and minStock
+      const quantity = Number(formData.quantity) || 0;
+      const minStock = Number(formData.minStock) || 0;
+      
+      let calculatedStatus = "In Stock";
+      if (quantity <= 0) {
+        calculatedStatus = "Out of Stock";
+      } else if (quantity < minStock) {
+        calculatedStatus = "Low Stock";
+      }
+
+      const dataToSend = {
+        name: formData.name,
+        category: formData.category,
+        quantity: quantity,
+        minStock: minStock,
+        unit: formData.unit || "",
+        supplier: formData.supplier || "",
+        purchaseDate: formData.purchaseDate ? new Date(formData.purchaseDate).toISOString() : null,
+        status: calculatedStatus,
+      };
+
+      if (editingItem) {
+        await inventoryService.update(editingItem.id, dataToSend);
+        showSnackbar("Inventory item updated successfully!", "success");
+      } else {
+        await inventoryService.create(dataToSend);
+        showSnackbar("Inventory item created successfully!", "success");
+      }
+      handleCloseDialog();
+      loadData();
+    } catch (error: any) {
+      console.error("Error saving inventory item:", error);
+      console.error("Response:", error?.response?.data);
+      const errorMessage = error?.response?.data?.message || "Failed to save inventory item";
+      showSnackbar(errorMessage, "error");
+    }
+  };
+
+  const handleDeleteItem = async (id: number) => {
+    if (window.confirm("Are you sure you want to delete this inventory item?")) {
+      try {
+        await inventoryService.delete(id);
+        showSnackbar("Inventory item deleted successfully!", "success");
+        loadData();
+      } catch (error) {
+        console.error("Error deleting inventory item:", error);
+        showSnackbar("Failed to delete inventory item", "error");
+      }
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "In Stock": return "success";
+      case "Low Stock": return "warning";
+      case "Out of Stock": return "error";
+      default: return "default";
+    }
+  };
+
+  const getStockPercentage = (item: InventoryItem) => {
+    const max = item.minStock * 3 || item.quantity + 10;
+    return Math.min((item.quantity / max) * 100, 100);
   };
 
   if (loading) {
     return (
-      <Box display="flex" justifyContent="center" py={8}>
+      <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
         <CircularProgress />
       </Box>
     );
   }
 
-  // Chart data for purchase vs consumption
-  const chartData = purchaseVsConsumption.map((item) => ({
-    name: item.month,
-    "Purchase": item.purchase,
-    "Consumption": item.consumption,
-  }));
-
-  // Inventory category data
-  const categoryData = items.reduce((acc: any[], item) => {
-    const existing = acc.find((c) => c.name === item.category);
-    if (existing) {
-      existing.value += item.quantity;
-    } else {
-      acc.push({ name: item.category, value: item.quantity });
-    }
-    return acc;
-  }, []);
-
-  const COLORS = ["#1976d2", "#2196f3", "#4caf50", "#ff9800", "#9c27b0"];
-
   return (
-    <Box p={3}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+    <Box sx={{ p: 3 }}>
+      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
         <Box>
-          <Typography variant="h4" fontWeight="bold">
+          <Typography variant="h4" sx={{ fontWeight: "bold", color: "#1a237e" }}>
             📦 Inventory Management
           </Typography>
-          <Typography color="text.secondary">
-            Track inventory, consumption, and purchase vs consumption analysis
+          <Typography sx={{ color: "text.secondary" }}>
+            {items.length} items
           </Typography>
         </Box>
-        <Button
-          variant="outlined"
-          startIcon={<RefreshIcon />}
-          onClick={loadData}
-        >
-          Refresh
-        </Button>
+        <Box sx={{ display: "flex", gap: 2 }}>
+          <Button variant="outlined" startIcon={<RefreshIcon />} onClick={loadData}>
+            Refresh
+          </Button>
+          <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpenDialog()}>
+            Add Item
+          </Button>
+        </Box>
       </Box>
 
-      {/* Stats Cards */}
-      <Grid container spacing={3} mb={4}>
+      <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ bgcolor: "#f5f5f5" }}>
+          <Card>
             <CardContent>
-              <Typography variant="body2" color="text.secondary">
-                Total Items
-              </Typography>
-              <Typography variant="h4" fontWeight="bold">
-                {stats.total}
+              <Typography variant="body2" sx={{ color: "text.secondary" }}>Total Items</Typography>
+              <Typography variant="h5" sx={{ fontWeight: "bold" }}>{items.length}</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card>
+            <CardContent>
+              <Typography variant="body2" sx={{ color: "text.secondary" }}>In Stock</Typography>
+              <Typography variant="h5" sx={{ fontWeight: "bold", color: "success.main" }}>
+                {items.filter(i => i.status === "In Stock").length}
               </Typography>
             </CardContent>
           </Card>
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ borderLeft: 4, borderColor: "error.main" }}>
+          <Card>
             <CardContent>
-              <Typography variant="body2" color="text.secondary">
-                Low Stock Items
-              </Typography>
-              <Typography variant="h4" fontWeight="bold" color="error.main">
-                {stats.lowStock}
+              <Typography variant="body2" sx={{ color: "text.secondary" }}>Low Stock</Typography>
+              <Typography variant="h5" sx={{ fontWeight: "bold", color: "warning.main" }}>
+                {items.filter(i => i.status === "Low Stock").length}
               </Typography>
             </CardContent>
           </Card>
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ borderLeft: 4, borderColor: "secondary.main" }}>
+          <Card>
             <CardContent>
-              <Typography variant="body2" color="text.secondary">
-                Categories
-              </Typography>
-              <Typography variant="h4" fontWeight="bold" color="secondary.main">
-                {stats.categories}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ borderLeft: 4, borderColor: "info.main" }}>
-            <CardContent>
-              <Typography variant="body2" color="text.secondary">
-                Purchase vs Consumption
-              </Typography>
-              <Typography variant="h4" fontWeight="bold" color="info.main">
-                {purchaseVsConsumption.length > 0
-                  ? `${((purchaseVsConsumption[purchaseVsConsumption.length - 1]?.purchase || 0) / 
-                      (purchaseVsConsumption[purchaseVsConsumption.length - 1]?.consumption || 1) * 100).toFixed(0)}%`
-                  : "N/A"}
+              <Typography variant="body2" sx={{ color: "text.secondary" }}>Out of Stock</Typography>
+              <Typography variant="h5" sx={{ fontWeight: "bold", color: "error.main" }}>
+                {items.filter(i => i.status === "Out of Stock").length}
               </Typography>
             </CardContent>
           </Card>
         </Grid>
       </Grid>
 
-      {/* Charts Section */}
-      <Grid container spacing={3} mb={4}>
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="h6" fontWeight="bold" mb={2}>
-              📊 Purchase vs Consumption Trend
-            </Typography>
-            <Typography variant="caption" color="text.secondary" display="block" mb={2}>
-              Compare monthly purchases with actual consumption
-            </Typography>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="Purchase" fill="#1976d2" />
-                <Bar dataKey="Consumption" fill="#ff9800" />
-              </BarChart>
-            </ResponsiveContainer>
-          </Paper>
-        </Grid>
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="h6" fontWeight="bold" mb={2}>
-              📈 Inventory by Category
-            </Typography>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={categoryData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {categoryData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </Paper>
-        </Grid>
-      </Grid>
-
-      {/* Items Table */}
-      <Paper sx={{ p: 2 }}>
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-          <TextField
-            placeholder="Search inventory..."
-            size="small"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            sx={{ width: 300 }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon />
-                </InputAdornment>
-              ),
-            }}
-          />
-          <Typography variant="body2" color="text.secondary">
-            {filteredItems.length} items found
-          </Typography>
-        </Box>
-
-        <TableContainer>
-          <Table>
-            <TableHead>
-              <TableRow sx={{ bgcolor: "#f5f5f5" }}>
-                <TableCell>Name</TableCell>
-                <TableCell>Category</TableCell>
-                <TableCell align="right">Quantity</TableCell>
-                <TableCell>Unit</TableCell>
-                <TableCell>Min Stock</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell align="right">Purchase Price</TableCell>
-                <TableCell align="right">Consumption</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {filteredItems.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={8} align="center">
-                    No items found
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredItems.map((item) => (
-                  <TableRow key={item.id} sx={{ "&:hover": { bgcolor: "#fafafa" } }}>
-                    <TableCell>
-                      <Typography variant="body2" fontWeight="medium">
+      <Grid container spacing={2}>
+        {items.length === 0 ? (
+          <Grid item xs={12}>
+            <Paper sx={{ p: 4, textAlign: "center" }}>
+              <Typography sx={{ color: "text.secondary" }}>No inventory items found</Typography>
+            </Paper>
+          </Grid>
+        ) : (
+          items.map((item) => (
+            <Grid item xs={12} sm={6} md={4} key={item.id}>
+              <Card sx={{ borderRadius: 2, transition: "transform 0.2s", "&:hover": { transform: "translateY(-4px)" } }}>
+                <CardContent>
+                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                    <Box>
+                      <Typography variant="h6" sx={{ fontWeight: "bold" }}>
                         {item.name}
                       </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Chip label={item.category} size="small" variant="outlined" />
-                    </TableCell>
-                    <TableCell align="right">
-                      <Typography variant="body2" fontWeight="bold">
-                        {item.quantity}
+                      <Chip label={item.category} size="small" variant="outlined" sx={{ mt: 0.5 }} />
+                      <Chip label={item.status} size="small" color={getStatusColor(item.status) as any} sx={{ mt: 0.5, ml: 0.5 }} />
+                    </Box>
+                    <Box>
+                      <IconButton size="small" color="primary" onClick={() => handleOpenDialog(item)}>
+                        <EditIcon />
+                      </IconButton>
+                      <IconButton size="small" color="error" onClick={() => handleDeleteItem(item.id)}>
+                        <DeleteIcon />
+                      </IconButton>
+                    </Box>
+                  </Box>
+
+                  <Box sx={{ mt: 2 }}>
+                    <Typography variant="body2">📦 Quantity: <strong>{item.quantity} {item.unit}</strong></Typography>
+                    <Typography variant="body2">📉 Minimum Stock: <strong>{item.minStock} {item.unit}</strong></Typography>
+                    {item.supplier && (
+                      <Typography variant="body2">🏭 Supplier: <strong>{item.supplier}</strong></Typography>
+                    )}
+                    {item.purchaseDate && (
+                      <Typography variant="body2">📅 Purchase Date: <strong>{new Date(item.purchaseDate).toLocaleDateString()}</strong></Typography>
+                    )}
+                  </Box>
+
+                  <Box sx={{ mt: 2 }}>
+                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <Typography variant="caption" sx={{ color: "text.secondary" }}>Stock Level</Typography>
+                      <Typography variant="caption" sx={{ fontWeight: "bold" }}>
+                        {Math.round(getStockPercentage(item))}%
                       </Typography>
-                    </TableCell>
-                    <TableCell>{item.unit}</TableCell>
-                    <TableCell>{item.minStock}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={item.quantity <= item.minStock ? "Low Stock" : "In Stock"}
-                        size="small"
-                        color={getStatusColor(item)}
-                      />
-                      {item.quantity <= item.minStock && (
-                        <WarningIcon color="error" fontSize="small" sx={{ ml: 1 }} />
-                      )}
-                    </TableCell>
-                    <TableCell align="right">
-                      ${item.purchasePrice.toFixed(2)}
-                    </TableCell>
-                    <TableCell align="right">
-                      <Box>
-                        <Typography variant="body2">{item.consumption}</Typography>
-                        <LinearProgress
-                          variant="determinate"
-                          value={(item.consumption / (item.purchasePrice || 1)) * 100}
-                          sx={{ height: 4, borderRadius: 2 }}
-                        />
-                      </Box>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Paper>
+                    </Box>
+                    <LinearProgress
+                      variant="determinate"
+                      value={getStockPercentage(item)}
+                      sx={{
+                        height: 8,
+                        borderRadius: 4,
+                        backgroundColor: "#e0e0e0",
+                        "& .MuiLinearProgress-bar": {
+                          borderRadius: 4,
+                          backgroundColor: item.status === "In Stock" ? "#4caf50" : item.status === "Low Stock" ? "#ff9800" : "#f44336",
+                        },
+                      }}
+                    />
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
+          ))
+        )}
+      </Grid>
+
+      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ bgcolor: "#1a237e", color: "white" }}>
+          {editingItem ? "✏️ Edit Inventory Item" : "➕ Add Inventory Item"}
+        </DialogTitle>
+        <DialogContent sx={{ mt: 2 }}>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
+            <TextField
+              label="Item Name"
+              fullWidth
+              required
+              placeholder="e.g. Toilet Paper, Hand Soap, Coffee..."
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            />
+
+            <TextField
+              select
+              label="Category"
+              fullWidth
+              required
+              value={formData.category}
+              onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+            >
+              {categories.map((cat) => (
+                <MenuItem key={cat} value={cat}>{cat}</MenuItem>
+              ))}
+            </TextField>
+
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Quantity"
+                  type="number"
+                  fullWidth
+                  required
+                  value={formData.quantity}
+                  onChange={(e) => setFormData({ ...formData, quantity: Number(e.target.value) })}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Unit"
+                  fullWidth
+                  placeholder="e.g. box, pack, piece, kg, L"
+                  value={formData.unit}
+                  onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+                />
+              </Grid>
+            </Grid>
+
+            <TextField
+              label="Minimum Stock (Reorder Level)"
+              type="number"
+              fullWidth
+              required
+              value={formData.minStock}
+              onChange={(e) => setFormData({ ...formData, minStock: Number(e.target.value) })}
+            />
+
+            <TextField
+              label="Supplier"
+              fullWidth
+              placeholder="e.g. Company X, Mercado Livre, etc."
+              value={formData.supplier}
+              onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
+            />
+
+            <TextField
+              label="Purchase Date"
+              type="date"
+              fullWidth
+              value={formData.purchaseDate}
+              onChange={(e) => setFormData({ ...formData, purchaseDate: e.target.value })}
+              InputLabelProps={{ shrink: true }}
+            />
+
+            {/* ✅ Status field removed - calculated automatically */}
+
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 3, gap: 1 }}>
+          <Button onClick={handleCloseDialog} variant="outlined" color="inherit">
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleSaveItem}
+            sx={{ bgcolor: "#1a237e" }}
+          >
+            {editingItem ? "Update" : "Add"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+      >
+        <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }

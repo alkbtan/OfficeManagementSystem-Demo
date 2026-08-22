@@ -16,12 +16,16 @@ public class AssetsController : ControllerBase
         _context = context;
     }
 
+    // GET: api/Assets
     [HttpGet]
     public async Task<ActionResult<IEnumerable<Asset>>> GetAll()
     {
-        return await _context.Assets.ToListAsync();
+        return await _context.Assets
+            .OrderBy(a => a.Name)
+            .ToListAsync();
     }
 
+    // GET: api/Assets/{id}
     [HttpGet("{id}")]
     public async Task<ActionResult<Asset>> GetById(int id)
     {
@@ -31,31 +35,50 @@ public class AssetsController : ControllerBase
         return asset;
     }
 
+    // POST: api/Assets
     [HttpPost]
-    public async Task<ActionResult<Asset>> Create(Asset asset)
+    public async Task<ActionResult<Asset>> Create([FromBody] Asset asset)
     {
+        if (string.IsNullOrWhiteSpace(asset.Name))
+            return BadRequest(new { message = "Name is required" });
+
+        if (string.IsNullOrWhiteSpace(asset.Type))
+            return BadRequest(new { message = "Type is required" });
+
         asset.CreatedAt = DateTime.UtcNow;
-        asset.PurchaseDate = asset.PurchaseDate.ToUniversalTime();
-        if (asset.WarrantyExpiry.HasValue)
-        {
-            asset.WarrantyExpiry = asset.WarrantyExpiry.Value.ToUniversalTime();
-        }
         _context.Assets.Add(asset);
         await _context.SaveChangesAsync();
         return Ok(asset);
     }
 
+    // PUT: api/Assets/{id}
     [HttpPut("{id}")]
-    public async Task<IActionResult> Update(int id, Asset asset)
+    public async Task<IActionResult> Update(int id, [FromBody] Asset asset)
     {
-        if (id != asset.Id)
-            return BadRequest();
+        var existingAsset = await _context.Assets.FindAsync(id);
+        if (existingAsset == null)
+            return NotFound(new { message = "Asset not found" });
 
-        _context.Entry(asset).State = EntityState.Modified;
+        if (string.IsNullOrWhiteSpace(asset.Name))
+            return BadRequest(new { message = "Name is required" });
+
+        if (string.IsNullOrWhiteSpace(asset.Type))
+            return BadRequest(new { message = "Type is required" });
+
+        // Update fields
+        existingAsset.Name = asset.Name;
+        existingAsset.Type = asset.Type;
+        existingAsset.Model = asset.Model ?? string.Empty;
+        existingAsset.SerialNumber = asset.SerialNumber ?? string.Empty;
+        existingAsset.Status = asset.Status;
+        existingAsset.AssignedTo = asset.AssignedTo;
+        existingAsset.Location = asset.Location;
+
         await _context.SaveChangesAsync();
-        return Ok(asset);
+        return Ok(existingAsset);
     }
 
+    // DELETE: api/Assets/{id}
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {
@@ -68,14 +91,12 @@ public class AssetsController : ControllerBase
         return NoContent();
     }
 
-    [HttpGet("stats")]
-    public async Task<ActionResult<object>> GetStats()
+    // GET: api/Assets/available
+    [HttpGet("available")]
+    public async Task<ActionResult<IEnumerable<Asset>>> GetAvailable()
     {
-        var total = await _context.Assets.CountAsync();
-        var available = await _context.Assets.CountAsync(a => a.Status == "Available");
-        var inUse = await _context.Assets.CountAsync(a => a.Status == "In Use");
-        var maintenance = await _context.Assets.CountAsync(a => a.Status == "Maintenance");
-
-        return Ok(new { total, available, inUse, maintenance });
+        return await _context.Assets
+            .Where(a => a.Status == "Available")
+            .ToListAsync();
     }
 }

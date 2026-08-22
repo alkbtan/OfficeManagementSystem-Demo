@@ -23,7 +23,6 @@ import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import RefreshIcon from "@mui/icons-material/Refresh";
-import SportsIcon from "@mui/icons-material/Sports";
 import { sportService } from "../../services/sportService";
 import type { Sport } from "../../services/sportService";
 
@@ -40,10 +39,14 @@ function Sports() {
 
   const [formData, setFormData] = useState({
     name: "",
-    type: "",
-    teams: "",
-    status: "Active" as Sport["status"],
+    date: "",
+    time: "",
+    preparation: "",
+    equipment: "",
+    status: "Pending" as Sport["status"],
   });
+
+  const statuses = ["Pending", "Preparing", "Ready", "Completed"];
 
   const loadData = async () => {
     try {
@@ -70,18 +73,22 @@ function Sports() {
     if (sport) {
       setEditingSport(sport);
       setFormData({
-        name: sport.name,
-        type: sport.type,
-        teams: sport.teams,
-        status: sport.status,
+        name: sport.name || "",
+        date: sport.date ? sport.date.split("T")[0] : "",
+        time: sport.time || "",
+        preparation: sport.preparation || "",
+        equipment: sport.equipment || "",
+        status: sport.status || "Pending",
       });
     } else {
       setEditingSport(null);
       setFormData({
         name: "",
-        type: "",
-        teams: "",
-        status: "Active",
+        date: "",
+        time: "",
+        preparation: "",
+        equipment: "",
+        status: "Pending",
       });
     }
     setOpenDialog(true);
@@ -92,20 +99,51 @@ function Sports() {
     setEditingSport(null);
   };
 
+  // ✅ FIXED: handleSaveSport without sending id in body
   const handleSaveSport = async () => {
+    // Validate required fields
+    if (!formData.name.trim()) {
+      showSnackbar("Match Name is required", "error");
+      return;
+    }
+    if (!formData.date) {
+      showSnackbar("Date is required", "error");
+      return;
+    }
+    if (!formData.time) {
+      showSnackbar("Time is required", "error");
+      return;
+    }
+
     try {
+      // Convert date to proper UTC format
+      const dateObj = new Date(formData.date);
+      const dateToSend = dateObj.toISOString();
+
+      // ✅ Don't send id in the body for update
+      const dataToSend = {
+        name: formData.name,
+        date: dateToSend,
+        time: formData.time,
+        preparation: formData.preparation || "",
+        equipment: formData.equipment || "",
+        status: formData.status,
+      };
+
       if (editingSport) {
-        await sportService.update(editingSport.id, formData);
+        await sportService.update(editingSport.id, dataToSend);
         showSnackbar("Sport updated successfully!", "success");
       } else {
-        await sportService.create(formData);
+        await sportService.create(dataToSend);
         showSnackbar("Sport created successfully!", "success");
       }
       handleCloseDialog();
       loadData();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error saving sport:", error);
-      showSnackbar("Failed to save sport", "error");
+      console.error("Response data:", error?.response?.data);
+      const errorMessage = error?.response?.data?.message || "Failed to save sport";
+      showSnackbar(errorMessage, "error");
     }
   };
 
@@ -124,9 +162,10 @@ function Sports() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "Active": return "success";
-      case "Completed": return "info";
-      case "Upcoming": return "warning";
+      case "Ready": return "success";
+      case "Preparing": return "warning";
+      case "Pending": return "info";
+      case "Completed": return "default";
       default: return "default";
     }
   };
@@ -141,13 +180,14 @@ function Sports() {
 
   return (
     <Box sx={{ p: 3 }}>
+      {/* Header */}
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
         <Box>
           <Typography variant="h4" sx={{ fontWeight: "bold", color: "#1a237e" }}>
             ⚽ Sports
           </Typography>
           <Typography sx={{ color: "text.secondary" }}>
-            Internal tournaments
+            {sports.length} matches
           </Typography>
         </Box>
         <Box sx={{ display: "flex", gap: 2 }}>
@@ -155,26 +195,29 @@ function Sports() {
             Refresh
           </Button>
           <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpenDialog()}>
-            New Sport
+            New Match
           </Button>
         </Box>
       </Box>
 
+      {/* Sports Grid */}
       <Grid container spacing={2}>
         {sports.length === 0 ? (
           <Grid item xs={12}>
             <Paper sx={{ p: 4, textAlign: "center" }}>
-              <Typography sx={{ color: "text.secondary" }}>No sports found</Typography>
+              <Typography sx={{ color: "text.secondary" }}>No matches found</Typography>
             </Paper>
           </Grid>
         ) : (
           sports.map((sport) => (
             <Grid item xs={12} md={6} lg={4} key={sport.id}>
-              <Card sx={{
-                borderRadius: 2,
-                transition: "transform 0.2s",
-                "&:hover": { transform: "translateY(-4px)" }
-              }}>
+              <Card
+                sx={{
+                  borderRadius: 2,
+                  transition: "transform 0.2s",
+                  "&:hover": { transform: "translateY(-4px)" },
+                }}
+              >
                 <CardContent>
                   <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                     <Box>
@@ -182,16 +225,10 @@ function Sports() {
                         {sport.name}
                       </Typography>
                       <Chip
-                        label={sport.type}
-                        size="small"
-                        variant="outlined"
-                        sx={{ mt: 0.5 }}
-                      />
-                      <Chip
                         label={sport.status}
                         size="small"
                         color={getStatusColor(sport.status) as any}
-                        sx={{ mt: 0.5, ml: 0.5 }}
+                        sx={{ mt: 0.5 }}
                       />
                     </Box>
                     <Box>
@@ -203,12 +240,19 @@ function Sports() {
                       </IconButton>
                     </Box>
                   </Box>
+
                   <Box sx={{ mt: 2 }}>
                     <Typography variant="body2">
-                      Teams: <strong>{sport.teams}</strong>
+                      📅 Date: <strong>{new Date(sport.date).toLocaleDateString()}</strong>
                     </Typography>
                     <Typography variant="body2">
-                      Next Match: <strong>{sport.nextMatch ? new Date(sport.nextMatch).toLocaleDateString() : "—"}</strong>
+                      ⏰ Time: <strong>{sport.time}</strong>
+                    </Typography>
+                    <Typography variant="body2" sx={{ mt: 0.5 }}>
+                      🔧 Preparation: <strong>{sport.preparation || "N/A"}</strong>
+                    </Typography>
+                    <Typography variant="body2">
+                      🏷️ Equipment: <strong>{sport.equipment || "N/A"}</strong>
                     </Typography>
                   </Box>
                 </CardContent>
@@ -218,33 +262,61 @@ function Sports() {
         )}
       </Grid>
 
+      {/* Add/Edit Dialog */}
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
-        <DialogTitle>{editingSport ? "Edit Sport" : "New Sport"}</DialogTitle>
-        <DialogContent>
+        <DialogTitle sx={{ bgcolor: "#1a237e", color: "white" }}>
+          {editingSport ? "✏️ Edit Match" : "➕ New Match"}
+        </DialogTitle>
+        <DialogContent sx={{ mt: 2 }}>
           <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
             <TextField
-              label="Sport Name"
+              label="Match Name"
               fullWidth
               required
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
             />
+
             <TextField
-              label="Type"
+              label="Date"
+              type="date"
               fullWidth
               required
-              value={formData.type}
-              onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-              placeholder="Futsal, Table Tennis, Chess, Basketball"
+              value={formData.date}
+              onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+              InputLabelProps={{ shrink: true }}
             />
+
             <TextField
-              label="Teams"
+              label="Time"
+              type="time"
               fullWidth
               required
-              value={formData.teams}
-              onChange={(e) => setFormData({ ...formData, teams: e.target.value })}
-              placeholder="8 teams"
+              value={formData.time}
+              onChange={(e) => setFormData({ ...formData, time: e.target.value })}
+              InputLabelProps={{ shrink: true }}
             />
+
+            <TextField
+              label="Preparation"
+              fullWidth
+              multiline
+              rows={2}
+              placeholder="e.g. Book field, arrange referees, prepare equipment"
+              value={formData.preparation}
+              onChange={(e) => setFormData({ ...formData, preparation: e.target.value })}
+            />
+
+            <TextField
+              label="Equipment"
+              fullWidth
+              multiline
+              rows={2}
+              placeholder="e.g. Balls, nets, whistles, bibs"
+              value={formData.equipment}
+              onChange={(e) => setFormData({ ...formData, equipment: e.target.value })}
+            />
+
             <TextField
               select
               label="Status"
@@ -252,27 +324,37 @@ function Sports() {
               value={formData.status}
               onChange={(e) => setFormData({ ...formData, status: e.target.value as Sport["status"] })}
             >
-              <MenuItem value="Active">Active</MenuItem>
-              <MenuItem value="Completed">Completed</MenuItem>
-              <MenuItem value="Upcoming">Upcoming</MenuItem>
+              {statuses.map((status) => (
+                <MenuItem key={status} value={status}>{status}</MenuItem>
+              ))}
             </TextField>
           </Box>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDialog}>Cancel</Button>
-          <Button variant="contained" onClick={handleSaveSport}>
+        <DialogActions sx={{ p: 3, gap: 1 }}>
+          <Button onClick={handleCloseDialog} variant="outlined" color="inherit">
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleSaveSport}
+            sx={{ bgcolor: "#1a237e" }}
+          >
             {editingSport ? "Update" : "Create"}
           </Button>
         </DialogActions>
       </Dialog>
 
+      {/* Snackbar */}
       <Snackbar
         open={snackbar.open}
-        autoHideDuration={3000}
+        autoHideDuration={4000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
       >
-        <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })}>
+        <Alert
+          severity={snackbar.severity}
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+        >
           {snackbar.message}
         </Alert>
       </Snackbar>

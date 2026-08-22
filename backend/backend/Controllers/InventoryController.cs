@@ -16,42 +16,91 @@ public class InventoryController : ControllerBase
         _context = context;
     }
 
+    // GET: api/Inventory
     [HttpGet]
     public async Task<ActionResult<IEnumerable<InventoryItem>>> GetAll()
     {
-        return await _context.InventoryItems.ToListAsync();
+        var items = await _context.InventoryItems
+            .OrderBy(i => i.Name)
+            .ToListAsync();
+
+        // ✅ Recalculate status for each item before returning
+        foreach (var item in items)
+        {
+            UpdateStatus(item);
+        }
+
+        return items;
     }
 
+    // GET: api/Inventory/{id}
     [HttpGet("{id}")]
     public async Task<ActionResult<InventoryItem>> GetById(int id)
     {
         var item = await _context.InventoryItems.FindAsync(id);
         if (item == null)
             return NotFound();
+
+        // ✅ Recalculate status
+        UpdateStatus(item);
+
         return item;
     }
 
+    // POST: api/Inventory
     [HttpPost]
-    public async Task<ActionResult<InventoryItem>> Create(InventoryItem item)
+    public async Task<ActionResult<InventoryItem>> Create([FromBody] InventoryItem item)
     {
+        if (string.IsNullOrWhiteSpace(item.Name))
+            return BadRequest(new { message = "Item Name is required" });
+
+        if (string.IsNullOrWhiteSpace(item.Category))
+            return BadRequest(new { message = "Category is required" });
+
+        // ✅ Update status based on quantity and minStock
+        UpdateStatus(item);
+
         item.LastUpdated = DateTime.UtcNow;
         _context.InventoryItems.Add(item);
         await _context.SaveChangesAsync();
+
         return Ok(item);
     }
 
+    // PUT: api/Inventory/{id}
     [HttpPut("{id}")]
-    public async Task<IActionResult> Update(int id, InventoryItem item)
+    public async Task<IActionResult> Update(int id, [FromBody] InventoryItem item)
     {
-        if (id != item.Id)
-            return BadRequest();
+        var existingItem = await _context.InventoryItems.FindAsync(id);
+        if (existingItem == null)
+            return NotFound(new { message = "Inventory item not found" });
 
-        item.LastUpdated = DateTime.UtcNow;
-        _context.Entry(item).State = EntityState.Modified;
+        if (string.IsNullOrWhiteSpace(item.Name))
+            return BadRequest(new { message = "Item Name is required" });
+
+        if (string.IsNullOrWhiteSpace(item.Category))
+            return BadRequest(new { message = "Category is required" });
+
+        // ✅ Update all fields
+        existingItem.Name = item.Name;
+        existingItem.Category = item.Category;
+        existingItem.Quantity = item.Quantity;
+        existingItem.MinStock = item.MinStock;
+        existingItem.Unit = item.Unit ?? string.Empty;
+        existingItem.Supplier = item.Supplier ?? string.Empty;
+        existingItem.PurchaseDate = item.PurchaseDate;
+
+        // ✅ Update status based on quantity and minStock
+        UpdateStatus(existingItem);
+
+        existingItem.LastUpdated = DateTime.UtcNow;
+
         await _context.SaveChangesAsync();
-        return Ok(item);
+        
+        return Ok(existingItem);
     }
 
+    // DELETE: api/Inventory/{id}
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {
@@ -61,53 +110,64 @@ public class InventoryController : ControllerBase
 
         _context.InventoryItems.Remove(item);
         await _context.SaveChangesAsync();
+
         return NoContent();
     }
 
+    // GET: api/Inventory/stats
     [HttpGet("stats")]
     public async Task<ActionResult<object>> GetStats()
     {
-        var total = await _context.InventoryItems.CountAsync();
-        var lowStock = await _context.InventoryItems.CountAsync(i => i.Quantity <= i.MinStock);
-        var categories = await _context.InventoryItems.Select(i => i.Category).Distinct().CountAsync();
-
-        return Ok(new { total, lowStock, categories });
-    }
-
-    [HttpGet("purchase-vs-consumption")]
-    public async Task<ActionResult<object>> GetPurchaseVsConsumption()
-    {
-        // Get last 6 months of data
-        var data = await _context.InventoryItems
-            .GroupBy(i => i.LastUpdated.Month)
-            .Select(g => new
-            {
-                Month = g.Key,
-                Purchase = g.Sum(i => i.PurchasePrice * i.Quantity),
-                Consumption = g.Sum(i => i.Consumption)
-            })
-            .OrderBy(d => d.Month)
-            .Take(6)
-            .ToListAsync();
-
-        var monthNames = new[] { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
-
-        var result = data.Select(d => new
+        var items = await _context.InventoryItems.ToListAsync();
+        
+        // ✅ Update status for all items first
+        foreach (var item in items)
         {
-            month = monthNames[d.Month - 1],
-            purchase = d.Purchase,
-            consumption = d.Consumption
-        });
+            UpdateStatus(item);
+        }
+        await _context.SaveChangesAsync();
 
-        return Ok(result);
+        var total = items.Count;
+        var lowStock = items.Count(i => i.Status == "Low Stock");
+        var outOfStock = items.Count(i => i.Status == "Out of Stock");
+        var categories = items.Select(i => i.Category).Distinct().Count();
+
+        return Ok(new { total, lowStock, outOfStock, categories });
     }
 
+    // GET: api/Inventory/low-stock
     [HttpGet("low-stock")]
     public async Task<ActionResult<IEnumerable<InventoryItem>>> GetLowStock()
     {
-        var items = await _context.InventoryItems
-            .Where(i => i.Quantity <= i.MinStock)
+        var items = await _context.InventoryItems.ToListAsync();
+        
+        // ✅ Update status for all items first
+        foreach (var item in items)
+        {
+            UpdateStatus(item);
+        }
+        await _context.SaveChangesAsync();
+
+        return await _context.InventoryItems
+            .Where(i => i.Status == "Low Stock" || i.Status == "Out of Stock")
+            .OrderBy(i => i.Name)
             .ToListAsync();
-        return Ok(items);
+    }
+
+    // ✅ Helper method to update status
+    private void UpdateStatus(InventoryItem item)
+    {
+        if (item.Quantity <= 0)
+        {
+            item.Status = "Out of Stock";
+        }
+        else if (item.Quantity < item.MinStock)
+        {
+            item.Status = "Low Stock";
+        }
+        else
+        {
+            item.Status = "In Stock";
+        }
     }
 }

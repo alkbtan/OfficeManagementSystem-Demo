@@ -20,9 +20,13 @@ public class Locker
     [MaxLength(20)]
     public string LockType { get; set; } = "Key";
 
-    public int? AssignedTo { get; set; }
+    [MaxLength(100)]
+    public string? AssignedTo { get; set; }
 
-    public bool BiometricEnabled { get; set; }
+    [MaxLength(100)]
+    public string? AssignedToName { get; set; }
+
+    public bool BiometricEnabled { get; set; } = false;
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

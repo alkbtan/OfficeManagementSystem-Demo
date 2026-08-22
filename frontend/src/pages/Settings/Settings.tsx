@@ -6,676 +6,477 @@ import {
   Card,
   CardContent,
   Paper,
-  TextField,
   Button,
+  TextField,
+  MenuItem,
   Switch,
   FormControlLabel,
-  Avatar,
-  Chip,
-  MenuItem,
-  Select,
-  FormControl,
-  InputLabel,
+  Divider,
   Snackbar,
   Alert,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemIcon,
-  ListItemSecondaryAction,
-  IconButton,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   CircularProgress,
-  Tab,
-  Tabs,
 } from "@mui/material";
-import {
-  Settings as SettingsIcon,
-  Security,
-  Language,
-  Palette,
-  Storage,
-  Notifications,
-  People,
-  Business,
-  Save,
-  RestartAlt,
-  Delete,
-  AdminPanelSettings,
-  Person,
-  VpnKey,
-} from "@mui/icons-material";
-import { useTranslation } from "react-i18next";
-import { useThemeContext } from "../../context/ThemeContext";
+import SaveIcon from "@mui/icons-material/Save";
+import RestoreIcon from "@mui/icons-material/Restore";
+import BusinessIcon from "@mui/icons-material/Business";
+import AttachMoneyIcon from "@mui/icons-material/AttachMoney";
+import LanguageIcon from "@mui/icons-material/Language";
+import NotificationsIcon from "@mui/icons-material/Notifications";
+import ColorLensIcon from "@mui/icons-material/ColorLens";
 
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
-}
-
-function TabPanel(props: TabPanelProps) {
-  const { children, value, index, ...other } = props;
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`settings-tabpanel-${index}`}
-      aria-labelledby={`settings-tab-${index}`}
-      {...other}
-    >
-      {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
-    </div>
-  );
+interface SettingsData {
+  organizationName: string;
+  currency: string;
+  locale: string;
+  theme: string;
+  notificationsEnabled: boolean;
+  darkMode: boolean;
+  dateFormat: string;
 }
 
 function Settings() {
-  const { t } = useTranslation();
-  const { primaryColor, setPrimaryColor, darkMode, setDarkMode } = useThemeContext();
-  const [tabValue, setTabValue] = useState(0);
-  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
     severity: "success" as "success" | "error" | "info" | "warning",
   });
 
-  // ✅ General settings
-  const [generalSettings, setGeneralSettings] = useState({
-    companyName: "QA Company",
-    department: "Office Management",
-    currency: "R$ (BRL)",
-    locale: "Brazil (pt-BR)",
-  });
-
-  // ✅ Appearance settings (synced with context)
-  const [appearanceSettings, setAppearanceSettings] = useState({
-    darkMode: darkMode,
-    primaryColor: primaryColor,
-    fontSize: "medium",
-  });
-
-  // ✅ Security settings
-  const [securitySettings, setSecuritySettings] = useState({
-    twoFactorAuth: false,
-    sessionTimeout: 60,
-    passwordExpiry: 90,
-  });
-
-  // ✅ Notification settings
-  const [notificationSettings, setNotificationSettings] = useState({
-    email: true,
-    push: true,
-    maintenance: true,
-    lowStock: true,
-  });
-
-  // ✅ Load settings from localStorage on mount
-  useEffect(() => {
-    const saved = localStorage.getItem("appSettings");
-    if (saved) {
-      try {
-        const settings = JSON.parse(saved);
-        setGeneralSettings(settings.general || { companyName: "QA Company", department: "Office Management", currency: "R$ (BRL)", locale: "Brazil (pt-BR)" });
-        setAppearanceSettings({
-          darkMode: settings.appearance?.darkMode || false,
-          primaryColor: settings.appearance?.primaryColor || "#1976d2",
-          fontSize: settings.appearance?.fontSize || "medium",
-        });
-        setSecuritySettings(settings.security || { twoFactorAuth: false, sessionTimeout: 60, passwordExpiry: 90 });
-        setNotificationSettings(settings.notifications || { email: true, push: true, maintenance: true, lowStock: true });
-      } catch {
-        // Use defaults
-      }
-    }
-  }, []);
-
-  // ✅ Roles
-  const [roles, setRoles] = useState(() => {
-    const saved = localStorage.getItem("appRoles");
+  // Load settings from localStorage
+  const loadSettings = (): SettingsData => {
+    const saved = localStorage.getItem("app_settings");
     if (saved) {
       try {
         return JSON.parse(saved);
-      } catch {
-        return [
-          { id: 1, name: "Admin", users: 3, permissions: ["All"] },
-          { id: 2, name: "Manager", users: 5, permissions: ["Read", "Write"] },
-          { id: 3, name: "Staff", users: 12, permissions: ["Read"] },
-          { id: 4, name: "Viewer", users: 8, permissions: ["Read"] },
-        ];
+      } catch (e) {
+        console.error("Error loading settings:", e);
       }
     }
-    return [
-      { id: 1, name: "Admin", users: 3, permissions: ["All"] },
-      { id: 2, name: "Manager", users: 5, permissions: ["Read", "Write"] },
-      { id: 3, name: "Staff", users: 12, permissions: ["Read"] },
-      { id: 4, name: "Viewer", users: 8, permissions: ["Read"] },
-    ];
-  });
-
-  // ✅ Users
-  const [users, setUsers] = useState(() => {
-    const saved = localStorage.getItem("appUsers");
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch {
-        return [
-          { id: 1, name: "Admin User", email: "admin@example.com", role: "Admin", status: "Active" },
-          { id: 2, name: "Mohammad Alshaar", email: "mohammad@example.com", role: "Manager", status: "Active" },
-          { id: 3, name: "Ahmed Ali", email: "ahmed@example.com", role: "Staff", status: "Inactive" },
-        ];
-      }
-    }
-    return [
-      { id: 1, name: "Admin User", email: "admin@example.com", role: "Admin", status: "Active" },
-      { id: 2, name: "Mohammad Alshaar", email: "mohammad@example.com", role: "Manager", status: "Active" },
-      { id: 3, name: "Ahmed Ali", email: "ahmed@example.com", role: "Staff", status: "Inactive" },
-    ];
-  });
-
-  const [openRoleDialog, setOpenRoleDialog] = useState(false);
-  const [newRole, setNewRole] = useState({ name: "", permissions: [] as string[] });
-  const [openUserDialog, setOpenUserDialog] = useState(false);
-  const [newUser, setNewUser] = useState({ name: "", email: "", role: "Staff", password: "" });
-
-  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
-    setTabValue(newValue);
+    return {
+      organizationName: "TestFlyQA",
+      currency: "BRL",
+      locale: "pt-BR",
+      theme: "default",
+      notificationsEnabled: true,
+      darkMode: false,
+      dateFormat: "DD/MM/YYYY",
+    };
   };
+
+  const [settings, setSettings] = useState<SettingsData>(loadSettings);
+
+  // ✅ Apply dark mode immediately when settings change
+  useEffect(() => {
+    applyTheme(settings.darkMode);
+  }, [settings.darkMode]);
+
+  const applyTheme = (darkMode: boolean) => {
+    const root = document.documentElement;
+    if (darkMode) {
+      root.style.backgroundColor = "#121212";
+      root.style.color = "#ffffff";
+      document.body.style.backgroundColor = "#121212";
+      document.body.style.color = "#ffffff";
+      
+      // Apply to all MUI components via CSS
+      const style = document.createElement('style');
+      style.id = 'dark-mode-style';
+      style.textContent = `
+        .MuiPaper-root { background-color: #1e1e1e !important; color: #ffffff !important; }
+        .MuiTypography-root { color: #ffffff !important; }
+        .MuiInputLabel-root { color: #aaaaaa !important; }
+        .MuiOutlinedInput-root fieldset { border-color: #444444 !important; }
+        .MuiOutlinedInput-root input { color: #ffffff !important; }
+        .MuiSelect-select { color: #ffffff !important; }
+        .MuiCard-root { background-color: #1e1e1e !important; }
+        .MuiCardContent-root { color: #ffffff !important; }
+        .MuiFormControlLabel-label { color: #ffffff !important; }
+        .MuiChip-root { color: #ffffff !important; }
+        .MuiTable-root { background-color: #1e1e1e !important; }
+        .MuiTableRow-root { background-color: #1e1e1e !important; }
+        .MuiTableCell-root { color: #ffffff !important; border-color: #444444 !important; }
+      `;
+      
+      // Remove existing dark mode style if any
+      const existing = document.getElementById('dark-mode-style');
+      if (existing) existing.remove();
+      document.head.appendChild(style);
+    } else {
+      // Remove dark mode
+      const existing = document.getElementById('dark-mode-style');
+      if (existing) existing.remove();
+      
+      root.style.backgroundColor = "#f5f7fa";
+      root.style.color = "#000000";
+      document.body.style.backgroundColor = "#f5f7fa";
+      document.body.style.color = "#000000";
+    }
+  };
+
+  const currencies = [
+    { value: "BRL", label: "R$ - Brazilian Real" },
+    { value: "USD", label: "$ - US Dollar" },
+    { value: "EUR", label: "€ - Euro" },
+    { value: "GBP", label: "£ - British Pound" },
+  ];
+
+  const locales = [
+    { value: "pt-BR", label: "Portuguese (Brazil)" },
+    { value: "en-US", label: "English (US)" },
+    { value: "en-UK", label: "English (UK)" },
+    { value: "es-ES", label: "Spanish (Spain)" },
+  ];
+
+  const dateFormats = [
+    { value: "DD/MM/YYYY", label: "DD/MM/YYYY" },
+    { value: "MM/DD/YYYY", label: "MM/DD/YYYY" },
+    { value: "YYYY-MM-DD", label: "YYYY-MM-DD" },
+  ];
+
+  const themes = [
+    { value: "default", label: "Default" },
+    { value: "dark", label: "Dark" },
+    { value: "light", label: "Light" },
+  ];
 
   const showSnackbar = (message: string, severity: "success" | "error" | "info" | "warning") => {
     setSnackbar({ open: true, message, severity });
   };
 
-  // ✅ Save all settings
-  const saveAllSettings = () => {
-    setLoading(true);
-    
-    // ✅ Update context (this will update the theme)
-    setPrimaryColor(appearanceSettings.primaryColor);
-    setDarkMode(appearanceSettings.darkMode);
-    
-    const settings = {
-      general: generalSettings,
-      appearance: appearanceSettings,
-      security: securitySettings,
-      notifications: notificationSettings,
-    };
-    localStorage.setItem("appSettings", JSON.stringify(settings));
-    localStorage.setItem("appRoles", JSON.stringify(roles));
-    localStorage.setItem("appUsers", JSON.stringify(users));
-    
-    setTimeout(() => {
-      setLoading(false);
-      showSnackbar("All settings saved successfully!", "success");
-    }, 500);
+  const handleSave = () => {
+    setSaving(true);
+    try {
+      localStorage.setItem("app_settings", JSON.stringify(settings));
+      
+      // ✅ Apply settings immediately
+      applyTheme(settings.darkMode);
+      
+      setTimeout(() => {
+        setSaving(false);
+        showSnackbar("Settings saved successfully! Changes applied.", "success");
+      }, 500);
+    } catch (error) {
+      setSaving(false);
+      showSnackbar("Failed to save settings", "error");
+    }
   };
 
-  // ✅ Reset to defaults
-  const resetToDefaults = () => {
+  const handleReset = () => {
     if (window.confirm("Are you sure you want to reset all settings to defaults?")) {
-      setGeneralSettings({ companyName: "QA Company", department: "Office Management", currency: "R$ (BRL)", locale: "Brazil (pt-BR)" });
-      setAppearanceSettings({ darkMode: false, primaryColor: "#1976d2", fontSize: "medium" });
-      setSecuritySettings({ twoFactorAuth: false, sessionTimeout: 60, passwordExpiry: 90 });
-      setNotificationSettings({ email: true, push: true, maintenance: true, lowStock: true });
-      setPrimaryColor("#1976d2");
-      setDarkMode(false);
-      localStorage.removeItem("appSettings");
-      localStorage.removeItem("appRoles");
-      localStorage.removeItem("appUsers");
+      const defaultSettings: SettingsData = {
+        organizationName: "TestFlyQA",
+        currency: "BRL",
+        locale: "pt-BR",
+        theme: "default",
+        notificationsEnabled: true,
+        darkMode: false,
+        dateFormat: "DD/MM/YYYY",
+      };
+      setSettings(defaultSettings);
+      localStorage.setItem("app_settings", JSON.stringify(defaultSettings));
+      applyTheme(false);
       showSnackbar("Settings reset to defaults!", "info");
     }
   };
 
-  const handleAddRole = () => {
-    if (newRole.name) {
-      const updated = [...roles, { id: roles.length + 1, name: newRole.name, users: 0, permissions: ["Read"] }];
-      setRoles(updated);
-      localStorage.setItem("appRoles", JSON.stringify(updated));
-      setOpenRoleDialog(false);
-      setNewRole({ name: "", permissions: [] });
-      showSnackbar(`Role "${newRole.name}" added successfully!`, "success");
-    }
-  };
-
-  const handleDeleteRole = (id: number) => {
-    if (window.confirm("Are you sure you want to delete this role?")) {
-      const updated = roles.filter((r) => r.id !== id);
-      setRoles(updated);
-      localStorage.setItem("appRoles", JSON.stringify(updated));
-      showSnackbar("Role deleted successfully!", "success");
-    }
-  };
-
-  const handleAddUser = () => {
-    if (newUser.name && newUser.email) {
-      const updated = [...users, { 
-        id: users.length + 1, 
-        name: newUser.name, 
-        email: newUser.email, 
-        role: newUser.role, 
-        status: "Active" 
-      }];
-      setUsers(updated);
-      localStorage.setItem("appUsers", JSON.stringify(updated));
-      setOpenUserDialog(false);
-      setNewUser({ name: "", email: "", role: "Staff", password: "" });
-      showSnackbar(`User "${newUser.name}" added successfully!`, "success");
-    }
-  };
-
-  const handleDeleteUser = (id: number) => {
-    if (window.confirm("Are you sure you want to delete this user?")) {
-      const updated = users.filter((u) => u.id !== id);
-      setUsers(updated);
-      localStorage.setItem("appUsers", JSON.stringify(updated));
-      showSnackbar("User deleted successfully!", "success");
-    }
+  const handleChange = (field: keyof SettingsData, value: any) => {
+    setSettings({ ...settings, [field]: value });
   };
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: 3, minHeight: "100vh", bgcolor: settings.darkMode ? "#121212" : "#f5f7fa" }}>
       {/* Header */}
-      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 4 }}>
+      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 4 }}>
         <Box>
-          <Typography variant="h4" sx={{ fontWeight: "bold", color: "#1a237e" }}>
-            ⚙️ {t("sidebar.settings")}
+          <Typography variant="h4" sx={{ fontWeight: 700, color: settings.darkMode ? "#ffffff" : "#1a237e" }}>
+            ⚙️ Settings
           </Typography>
-          <Typography sx={{ color: "text.secondary" }}>
+          <Typography sx={{ color: settings.darkMode ? "#aaaaaa" : "#666", mt: 0.5 }}>
             System configuration and management
           </Typography>
         </Box>
         <Box sx={{ display: "flex", gap: 2 }}>
-          <Button variant="outlined" color="error" startIcon={<RestartAlt />} onClick={resetToDefaults}>
+          <Button
+            variant="outlined"
+            startIcon={<RestoreIcon />}
+            onClick={handleReset}
+            sx={{ 
+              borderRadius: 2, 
+              textTransform: "none",
+              color: settings.darkMode ? "#ffffff" : undefined,
+              borderColor: settings.darkMode ? "#666" : undefined,
+            }}
+          >
             Reset to Defaults
           </Button>
-          <Button variant="contained" startIcon={<Save />} onClick={saveAllSettings} disabled={loading}>
-            {loading ? <CircularProgress size={24} /> : "Save All"}
+          <Button
+            variant="contained"
+            startIcon={saving ? <CircularProgress size={20} color="inherit" /> : <SaveIcon />}
+            onClick={handleSave}
+            disabled={saving}
+            sx={{
+              borderRadius: 2,
+              textTransform: "none",
+              bgcolor: "#1a237e",
+              "&:hover": { bgcolor: "#0d1445" },
+              minWidth: 140,
+            }}
+          >
+            {saving ? "Saving..." : "Save All"}
           </Button>
         </Box>
       </Box>
 
-      {/* Tabs */}
-      <Paper sx={{ borderRadius: 3, overflow: "hidden" }}>
-        <Tabs
-          value={tabValue}
-          onChange={handleTabChange}
-          variant="scrollable"
-          scrollButtons="auto"
-          sx={{
-            bgcolor: "#f5f5f5",
-            borderBottom: 1,
-            borderColor: "divider",
-            "& .MuiTab-root": {
-              textTransform: "none",
-              fontWeight: 500,
-              minHeight: 64,
-            },
-            "& .Mui-selected": {
-              color: "#1976d2",
-            },
-          }}
-        >
-          <Tab icon={<Business />} label="Organization" />
-          <Tab icon={<Palette />} label="Appearance" />
-          <Tab icon={<Security />} label="Security" />
-          <Tab icon={<People />} label="Roles" />
-          <Tab icon={<AdminPanelSettings />} label="Users" />
-          <Tab icon={<Notifications />} label="Notifications" />
-        </Tabs>
+      {/* Preview Card - Shows current settings in action */}
+      <Card sx={{ borderRadius: 3, p: 3, mb: 3, bgcolor: settings.darkMode ? "#1e1e1e" : "white" }}>
+        <Typography variant="body2" sx={{ color: settings.darkMode ? "#aaa" : "#666" }}>
+          Preview
+        </Typography>
+        <Grid container spacing={2} sx={{ mt: 0.5 }}>
+          <Grid item xs={6}>
+            <Typography variant="body2" sx={{ color: settings.darkMode ? "#aaa" : "#666" }}>
+              Currency Format:
+            </Typography>
+            <Typography variant="h6" sx={{ color: settings.darkMode ? "#fff" : "#1a237e" }}>
+              {settings.currency === "BRL" ? "R$ 1.250,75" :
+               settings.currency === "USD" ? "$1,250.75" :
+               settings.currency === "EUR" ? "€1,250.75" :
+               "£1,250.75"}
+            </Typography>
+          </Grid>
+          <Grid item xs={6}>
+            <Typography variant="body2" sx={{ color: settings.darkMode ? "#aaa" : "#666" }}>
+              Date Format:
+            </Typography>
+            <Typography variant="h6" sx={{ color: settings.darkMode ? "#fff" : "#1a237e" }}>
+              {settings.dateFormat === "DD/MM/YYYY" ? "22/08/2026" :
+               settings.dateFormat === "MM/DD/YYYY" ? "08/22/2026" :
+               "2026-08-22"}
+            </Typography>
+          </Grid>
+        </Grid>
+        <Typography variant="caption" sx={{ color: settings.darkMode ? "#666" : "#999", display: "block", mt: 1 }}>
+          {settings.darkMode ? "🌙 Dark Mode Active" : "☀️ Light Mode Active"}
+        </Typography>
+      </Card>
 
-        {/* Tab: Organization */}
-        <TabPanel value={tabValue} index={0}>
-          <Typography variant="h6" sx={{ fontWeight: "bold", mb: 3 }}>
+      {/* Organization Settings */}
+      <Paper sx={{ borderRadius: 3, p: 3, mb: 3, bgcolor: settings.darkMode ? "#1e1e1e" : "white" }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 3 }}>
+          <BusinessIcon sx={{ color: "#1a237e" }} />
+          <Typography variant="h6" sx={{ fontWeight: 600, color: settings.darkMode ? "#ffffff" : "#1a237e" }}>
             Organization Settings
           </Typography>
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={6}>
-              <TextField
-                label="Organization Name"
-                fullWidth
-                value={generalSettings.companyName}
-                onChange={(e) =>
-                  setGeneralSettings({ ...generalSettings, companyName: e.target.value })
-                }
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                label="Department"
-                fullWidth
-                value={generalSettings.department}
-                onChange={(e) =>
-                  setGeneralSettings({ ...generalSettings, department: e.target.value })
-                }
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth>
-                <InputLabel>Currency</InputLabel>
-                <Select
-                  value={generalSettings.currency}
-                  label="Currency"
-                  onChange={(e) =>
-                    setGeneralSettings({ ...generalSettings, currency: e.target.value })
-                  }
-                >
-                  <MenuItem value="R$ (BRL)">R$ (BRL)</MenuItem>
-                  <MenuItem value="$ (USD)">$ (USD)</MenuItem>
-                  <MenuItem value="€ (EUR)">€ (EUR)</MenuItem>
-                  <MenuItem value="£ (GBP)">£ (GBP)</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth>
-                <InputLabel>Locale</InputLabel>
-                <Select
-                  value={generalSettings.locale}
-                  label="Locale"
-                  onChange={(e) =>
-                    setGeneralSettings({ ...generalSettings, locale: e.target.value })
-                  }
-                >
-                  <MenuItem value="Brazil (pt-BR)">Brazil (pt-BR)</MenuItem>
-                  <MenuItem value="United States (en-US)">United States (en-US)</MenuItem>
-                  <MenuItem value="United Kingdom (en-GB)">United Kingdom (en-GB)</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
+        </Box>
+
+        <Grid container spacing={3}>
+          <Grid item xs={12} md={6}>
+            <TextField
+              label="Organization Name"
+              fullWidth
+              value={settings.organizationName}
+              onChange={(e) => handleChange("organizationName", e.target.value)}
+              sx={{
+                "& .MuiOutlinedInput-root": { borderRadius: 2 },
+                "& .MuiInputLabel-root": { color: settings.darkMode ? "#aaa" : undefined },
+                "& .MuiOutlinedInput-input": { color: settings.darkMode ? "#fff" : undefined },
+                "& .MuiOutlinedInput-root fieldset": { 
+                  borderColor: settings.darkMode ? "#444" : undefined 
+                },
+              }}
+            />
           </Grid>
-        </TabPanel>
-
-        {/* Tab: Appearance - ✅ يعمل مع Context */}
-        <TabPanel value={tabValue} index={1}>
-          <Typography variant="h6" sx={{ fontWeight: "bold", mb: 3 }}>
-            Appearance Settings
-          </Typography>
-          <Grid container spacing={3}>
-            <Grid item xs={12}>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={appearanceSettings.darkMode}
-                    onChange={(e) => {
-                      setAppearanceSettings({ ...appearanceSettings, darkMode: e.target.checked });
-                      setDarkMode(e.target.checked); // ✅ Update context immediately
-                    }}
-                  />
-                }
-                label="Dark Mode"
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <FormControl fullWidth>
-                <InputLabel>Primary Color</InputLabel>
-                <Select
-                  value={appearanceSettings.primaryColor}
-                  label="Primary Color"
-                  onChange={(e) => {
-                    const color = e.target.value;
-                    setAppearanceSettings({ ...appearanceSettings, primaryColor: color });
-                    setPrimaryColor(color); // ✅ Update context immediately
-                  }}
-                >
-                  <MenuItem value="#1976d2">🔵 Blue</MenuItem>
-                  <MenuItem value="#4caf50">🟢 Green</MenuItem>
-                  <MenuItem value="#f44336">🔴 Red</MenuItem>
-                  <MenuItem value="#ff9800">🟠 Orange</MenuItem>
-                  <MenuItem value="#9c27b0">🟣 Purple</MenuItem>
-                  <MenuItem value="#1a237e">🔵 Dark Blue</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12}>
-              <FormControl fullWidth>
-                <InputLabel>Font Size</InputLabel>
-                <Select
-                  value={appearanceSettings.fontSize}
-                  label="Font Size"
-                  onChange={(e) =>
-                    setAppearanceSettings({ ...appearanceSettings, fontSize: e.target.value })
-                  }
-                >
-                  <MenuItem value="small">Small</MenuItem>
-                  <MenuItem value="medium">Medium</MenuItem>
-                  <MenuItem value="large">Large</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
+          <Grid item xs={12} md={6}>
+            <TextField
+              select
+              label="Currency"
+              fullWidth
+              value={settings.currency}
+              onChange={(e) => handleChange("currency", e.target.value)}
+              sx={{
+                "& .MuiOutlinedInput-root": { borderRadius: 2 },
+                "& .MuiInputLabel-root": { color: settings.darkMode ? "#aaa" : undefined },
+                "& .MuiOutlinedInput-input": { color: settings.darkMode ? "#fff" : undefined },
+                "& .MuiOutlinedInput-root fieldset": { 
+                  borderColor: settings.darkMode ? "#444" : undefined 
+                },
+                "& .MuiSelect-select": { color: settings.darkMode ? "#fff" : undefined },
+              }}
+            >
+              {currencies.map((option) => (
+                <MenuItem key={option.value} value={option.value}>
+                  {option.label}
+                </MenuItem>
+              ))}
+            </TextField>
           </Grid>
-        </TabPanel>
-
-        {/* Tab: Security */}
-        <TabPanel value={tabValue} index={2}>
-          <Typography variant="h6" sx={{ fontWeight: "bold", mb: 3 }}>
-            Security Settings
-          </Typography>
-          <Grid container spacing={3}>
-            <Grid item xs={12}>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={securitySettings.twoFactorAuth}
-                    onChange={(e) =>
-                      setSecuritySettings({ ...securitySettings, twoFactorAuth: e.target.checked })
-                    }
-                  />
-                }
-                label="Two-Factor Authentication"
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                label="Session Timeout (minutes)"
-                type="number"
-                fullWidth
-                value={securitySettings.sessionTimeout}
-                onChange={(e) =>
-                  setSecuritySettings({ ...securitySettings, sessionTimeout: Number(e.target.value) })
-                }
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                label="Password Expiry (days)"
-                type="number"
-                fullWidth
-                value={securitySettings.passwordExpiry}
-                onChange={(e) =>
-                  setSecuritySettings({ ...securitySettings, passwordExpiry: Number(e.target.value) })
-                }
-              />
-            </Grid>
-          </Grid>
-        </TabPanel>
-
-        {/* Tab: Roles */}
-        <TabPanel value={tabValue} index={3}>
-          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
-            <Typography variant="h6" sx={{ fontWeight: "bold" }}>
-              Roles & Permissions
-            </Typography>
-            <Button variant="contained" onClick={() => setOpenRoleDialog(true)}>
-              Add Role
-            </Button>
-          </Box>
-          <Grid container spacing={2}>
-            {roles.map((role) => (
-              <Grid item xs={12} md={6} key={role.id}>
-                <Card sx={{ borderRadius: 2 }}>
-                  <CardContent>
-                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <Box>
-                        <Typography variant="h6" sx={{ fontWeight: "bold" }}>
-                          {role.name}
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                          {role.users} users · {role.permissions.join(", ")}
-                        </Typography>
-                      </Box>
-                      <IconButton color="error" onClick={() => handleDeleteRole(role.id)}>
-                        <Delete />
-                      </IconButton>
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Grid>
-            ))}
-          </Grid>
-        </TabPanel>
-
-        {/* Tab: Users */}
-        <TabPanel value={tabValue} index={4}>
-          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
-            <Typography variant="h6" sx={{ fontWeight: "bold" }}>
-              User Management
-            </Typography>
-            <Button variant="contained" onClick={() => setOpenUserDialog(true)}>
-              Add User
-            </Button>
-          </Box>
-          <List>
-            {users.map((user) => (
-              <ListItem
-                key={user.id}
-                sx={{
-                  borderRadius: 2,
-                  mb: 1,
-                  bgcolor: "#f5f5f5",
-                  "&:hover": { bgcolor: "#e0e0e0" },
-                }}
-              >
-                <ListItemIcon>
-                  <Avatar sx={{ bgcolor: user.status === "Active" ? "#4caf50" : "#f44336" }}>
-                    <Person />
-                  </Avatar>
-                </ListItemIcon>
-                <ListItemText
-                  primary={user.name}
-                  secondary={`${user.email} · ${user.role}`}
-                />
-                <ListItemSecondaryAction>
-                  <Chip
-                    label={user.status}
-                    size="small"
-                    color={user.status === "Active" ? "success" : "error"}
-                    sx={{ mr: 1 }}
-                  />
-                  <IconButton color="error" onClick={() => handleDeleteUser(user.id)}>
-                    <Delete />
-                  </IconButton>
-                </ListItemSecondaryAction>
-              </ListItem>
-            ))}
-          </List>
-        </TabPanel>
-
-        {/* Tab: Notifications */}
-        <TabPanel value={tabValue} index={5}>
-          <Typography variant="h6" sx={{ fontWeight: "bold", mb: 3 }}>
-            Notification Settings
-          </Typography>
-          <List>
-            {[
-              { id: "email", label: "Email Notifications", description: "Receive notifications via email", key: "email" },
-              { id: "push", label: "Push Notifications", description: "Receive push notifications in browser", key: "push" },
-              { id: "maintenance", label: "Maintenance Alerts", description: "Get alerts for maintenance tasks", key: "maintenance" },
-              { id: "lowStock", label: "Low Stock Alerts", description: "Get alerts when inventory is low", key: "lowStock" },
-            ].map((item) => (
-              <ListItem key={item.id} sx={{ borderBottom: 1, borderColor: "divider" }}>
-                <ListItemText
-                  primary={item.label}
-                  secondary={item.description}
-                />
-                <Switch
-                  checked={notificationSettings[item.key as keyof typeof notificationSettings]}
-                  onChange={(e) =>
-                    setNotificationSettings({ ...notificationSettings, [item.key]: e.target.checked })
-                  }
-                />
-              </ListItem>
-            ))}
-          </List>
-        </TabPanel>
+        </Grid>
       </Paper>
 
-      {/* Dialogs */}
-      <Dialog open={openRoleDialog} onClose={() => setOpenRoleDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Add New Role</DialogTitle>
-        <DialogContent>
-          <TextField
-            label="Role Name"
-            fullWidth
-            margin="normal"
-            value={newRole.name}
-            onChange={(e) => setNewRole({ ...newRole, name: e.target.value })}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenRoleDialog(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleAddRole}>Add</Button>
-        </DialogActions>
-      </Dialog>
+      {/* Localization */}
+      <Paper sx={{ borderRadius: 3, p: 3, mb: 3, bgcolor: settings.darkMode ? "#1e1e1e" : "white" }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 3 }}>
+          <LanguageIcon sx={{ color: "#1a237e" }} />
+          <Typography variant="h6" sx={{ fontWeight: 600, color: settings.darkMode ? "#ffffff" : "#1a237e" }}>
+            Localization
+          </Typography>
+        </Box>
 
-      <Dialog open={openUserDialog} onClose={() => setOpenUserDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Add New User</DialogTitle>
-        <DialogContent>
-          <TextField
-            label="Name"
-            fullWidth
-            margin="normal"
-            value={newUser.name}
-            onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
-          />
-          <TextField
-            label="Email"
-            fullWidth
-            margin="normal"
-            value={newUser.email}
-            onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
-          />
-          <TextField
-            label="Password"
-            type="password"
-            fullWidth
-            margin="normal"
-            value={newUser.password}
-            onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
-          />
-          <FormControl fullWidth margin="normal">
-            <InputLabel>Role</InputLabel>
-            <Select
-              value={newUser.role}
-              label="Role"
-              onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
+        <Grid container spacing={3}>
+          <Grid item xs={12} md={6}>
+            <TextField
+              select
+              label="Locale"
+              fullWidth
+              value={settings.locale}
+              onChange={(e) => handleChange("locale", e.target.value)}
+              sx={{
+                "& .MuiOutlinedInput-root": { borderRadius: 2 },
+                "& .MuiInputLabel-root": { color: settings.darkMode ? "#aaa" : undefined },
+                "& .MuiOutlinedInput-input": { color: settings.darkMode ? "#fff" : undefined },
+                "& .MuiOutlinedInput-root fieldset": { 
+                  borderColor: settings.darkMode ? "#444" : undefined 
+                },
+                "& .MuiSelect-select": { color: settings.darkMode ? "#fff" : undefined },
+              }}
             >
-              <MenuItem value="Admin">Admin</MenuItem>
-              <MenuItem value="Manager">Manager</MenuItem>
-              <MenuItem value="Staff">Staff</MenuItem>
-              <MenuItem value="Viewer">Viewer</MenuItem>
-            </Select>
-          </FormControl>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenUserDialog(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleAddUser}>Add</Button>
-        </DialogActions>
-      </Dialog>
+              {locales.map((option) => (
+                <MenuItem key={option.value} value={option.value}>
+                  {option.label}
+                </MenuItem>
+              ))}
+            </TextField>
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <TextField
+              select
+              label="Date Format"
+              fullWidth
+              value={settings.dateFormat}
+              onChange={(e) => handleChange("dateFormat", e.target.value)}
+              sx={{
+                "& .MuiOutlinedInput-root": { borderRadius: 2 },
+                "& .MuiInputLabel-root": { color: settings.darkMode ? "#aaa" : undefined },
+                "& .MuiOutlinedInput-input": { color: settings.darkMode ? "#fff" : undefined },
+                "& .MuiOutlinedInput-root fieldset": { 
+                  borderColor: settings.darkMode ? "#444" : undefined 
+                },
+                "& .MuiSelect-select": { color: settings.darkMode ? "#fff" : undefined },
+              }}
+            >
+              {dateFormats.map((option) => (
+                <MenuItem key={option.value} value={option.value}>
+                  {option.label}
+                </MenuItem>
+              ))}
+            </TextField>
+          </Grid>
+        </Grid>
+      </Paper>
+
+      {/* Appearance */}
+      <Paper sx={{ borderRadius: 3, p: 3, mb: 3, bgcolor: settings.darkMode ? "#1e1e1e" : "white" }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 3 }}>
+          <ColorLensIcon sx={{ color: "#1a237e" }} />
+          <Typography variant="h6" sx={{ fontWeight: 600, color: settings.darkMode ? "#ffffff" : "#1a237e" }}>
+            Appearance
+          </Typography>
+        </Box>
+
+        <Grid container spacing={3}>
+          <Grid item xs={12} md={6}>
+            <TextField
+              select
+              label="Theme"
+              fullWidth
+              value={settings.theme}
+              onChange={(e) => handleChange("theme", e.target.value)}
+              sx={{
+                "& .MuiOutlinedInput-root": { borderRadius: 2 },
+                "& .MuiInputLabel-root": { color: settings.darkMode ? "#aaa" : undefined },
+                "& .MuiOutlinedInput-input": { color: settings.darkMode ? "#fff" : undefined },
+                "& .MuiOutlinedInput-root fieldset": { 
+                  borderColor: settings.darkMode ? "#444" : undefined 
+                },
+                "& .MuiSelect-select": { color: settings.darkMode ? "#fff" : undefined },
+              }}
+            >
+              {themes.map((option) => (
+                <MenuItem key={option.value} value={option.value}>
+                  {option.label}
+                </MenuItem>
+              ))}
+            </TextField>
+          </Grid>
+          <Grid item xs={12} md={6}>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={settings.darkMode}
+                  onChange={(e) => handleChange("darkMode", e.target.checked)}
+                  sx={{
+                    "& .MuiSwitch-switchBase.Mui-checked": {
+                      color: "#7b1fa2",
+                    },
+                    "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": {
+                      bgcolor: "#7b1fa2",
+                    },
+                  }}
+                />
+              }
+              label={
+                <Typography sx={{ color: settings.darkMode ? "#fff" : "#000" }}>
+                  Dark Mode
+                </Typography>
+              }
+            />
+          </Grid>
+        </Grid>
+      </Paper>
+
+      {/* Notifications */}
+      <Paper sx={{ borderRadius: 3, p: 3, bgcolor: settings.darkMode ? "#1e1e1e" : "white" }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 3 }}>
+          <NotificationsIcon sx={{ color: "#1a237e" }} />
+          <Typography variant="h6" sx={{ fontWeight: 600, color: settings.darkMode ? "#ffffff" : "#1a237e" }}>
+            Notifications
+          </Typography>
+        </Box>
+
+        <FormControlLabel
+          control={
+            <Switch
+              checked={settings.notificationsEnabled}
+              onChange={(e) => handleChange("notificationsEnabled", e.target.checked)}
+              sx={{
+                "& .MuiSwitch-switchBase.Mui-checked": {
+                  color: "#7b1fa2",
+                },
+                "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": {
+                  bgcolor: "#7b1fa2",
+                },
+              }}
+            />
+          }
+          label={
+            <Typography sx={{ color: settings.darkMode ? "#fff" : "#000" }}>
+              Enable Notifications
+            </Typography>
+          }
+        />
+      </Paper>
 
       {/* Snackbar */}
       <Snackbar
         open={snackbar.open}
-        autoHideDuration={3000}
+        autoHideDuration={4000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
       >
         <Alert
           severity={snackbar.severity}
           onClose={() => setSnackbar({ ...snackbar, open: false })}
+          sx={{ borderRadius: 2 }}
         >
           {snackbar.message}
         </Alert>

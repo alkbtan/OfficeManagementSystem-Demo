@@ -16,12 +16,16 @@ public class TicketsController : ControllerBase
         _context = context;
     }
 
+    // GET: api/Tickets
     [HttpGet]
     public async Task<ActionResult<IEnumerable<Ticket>>> GetAll()
     {
-        return await _context.Tickets.ToListAsync();
+        return await _context.Tickets
+            .OrderByDescending(t => t.CreatedAt)
+            .ToListAsync();
     }
 
+    // GET: api/Tickets/{id}
     [HttpGet("{id}")]
     public async Task<ActionResult<Ticket>> GetById(int id)
     {
@@ -31,27 +35,52 @@ public class TicketsController : ControllerBase
         return ticket;
     }
 
+    // POST: api/Tickets
     [HttpPost]
-    public async Task<ActionResult<Ticket>> Create(Ticket ticket)
+    public async Task<ActionResult<Ticket>> Create([FromBody] Ticket ticket)
     {
+        if (string.IsNullOrWhiteSpace(ticket.Title))
+            return BadRequest(new { message = "Title is required" });
+
         ticket.CreatedAt = DateTime.UtcNow;
         _context.Tickets.Add(ticket);
         await _context.SaveChangesAsync();
         return Ok(ticket);
     }
 
+    // PUT: api/Tickets/{id}
     [HttpPut("{id}")]
-    public async Task<IActionResult> Update(int id, Ticket ticket)
+    public async Task<IActionResult> Update(int id, [FromBody] Ticket ticket)
     {
-        if (id != ticket.Id)
-            return BadRequest();
+        // Check if ticket exists
+        var existingTicket = await _context.Tickets.FindAsync(id);
+        if (existingTicket == null)
+            return NotFound(new { message = "Ticket not found" });
 
-        ticket.UpdatedAt = DateTime.UtcNow;
-        _context.Entry(ticket).State = EntityState.Modified;
+        // Validate required fields
+        if (string.IsNullOrWhiteSpace(ticket.Title))
+            return BadRequest(new { message = "Title is required" });
+
+        // Update fields
+        existingTicket.Title = ticket.Title;
+        existingTicket.Description = ticket.Description ?? string.Empty;
+        existingTicket.Status = ticket.Status;
+        existingTicket.Priority = ticket.Priority;
+        existingTicket.AssignedTo = ticket.AssignedTo ?? string.Empty;
+        
+        // ✅ NEW FIELDS
+        existingTicket.JiraTicket = ticket.JiraTicket ?? string.Empty;
+        existingTicket.Link = ticket.Link ?? string.Empty;
+        existingTicket.Amount = ticket.Amount;
+        existingTicket.Date = ticket.Date;
+        existingTicket.Floor = ticket.Floor ?? string.Empty;
+        existingTicket.Company = ticket.Company ?? string.Empty;
+
         await _context.SaveChangesAsync();
-        return Ok(ticket);
+        return Ok(existingTicket);
     }
 
+    // DELETE: api/Tickets/{id}
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {
@@ -62,16 +91,5 @@ public class TicketsController : ControllerBase
         _context.Tickets.Remove(ticket);
         await _context.SaveChangesAsync();
         return NoContent();
-    }
-
-    [HttpGet("stats")]
-    public async Task<ActionResult<object>> GetStats()
-    {
-        var total = await _context.Tickets.CountAsync();
-        var open = await _context.Tickets.CountAsync(t => t.Status == "Open");
-        var inProgress = await _context.Tickets.CountAsync(t => t.Status == "In Progress");
-        var closed = await _context.Tickets.CountAsync(t => t.Status == "Closed");
-
-        return Ok(new { total, open, inProgress, closed });
     }
 }

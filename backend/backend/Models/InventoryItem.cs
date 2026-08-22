@@ -15,14 +15,19 @@ public class InventoryItem
     public string Category { get; set; } = string.Empty;
 
     public int Quantity { get; set; }
-    public int MinStock { get; set; }
-    public int MaxStock { get; set; }
 
-    [MaxLength(10)]
+    public int MinStock { get; set; }
+
+    [MaxLength(20)]
     public string Unit { get; set; } = string.Empty;
 
-    public decimal PurchasePrice { get; set; }
-    public decimal Consumption { get; set; }
+    [MaxLength(100)]
+    public string Supplier { get; set; } = string.Empty;
+
+    public DateTime? PurchaseDate { get; set; }
+
+    [MaxLength(20)]
+    public string Status { get; set; } = "In Stock";
 
     public DateTime LastUpdated { get; set; } = DateTime.UtcNow;
 }

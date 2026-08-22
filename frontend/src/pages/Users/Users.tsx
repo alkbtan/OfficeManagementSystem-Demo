@@ -6,13 +6,6 @@ import {
   Card,
   CardContent,
   Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Chip,
   Button,
   IconButton,
   CircularProgress,
@@ -24,51 +17,57 @@ import {
   MenuItem,
   Snackbar,
   Alert,
-  InputAdornment,
+  Chip,
+  Avatar,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Tooltip,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
-import SearchIcon from "@mui/icons-material/Search";
-import PeopleIcon from "@mui/icons-material/People";
-import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
+import RefreshIcon from "@mui/icons-material/Refresh";
+import VpnKeyIcon from "@mui/icons-material/VpnKey";
 import PersonIcon from "@mui/icons-material/Person";
-import BlockIcon from "@mui/icons-material/Block";
+import EmailIcon from "@mui/icons-material/Email";
+import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
 import { userService } from "../../services/userService";
 import type { User } from "../../services/userService";
 
 function Users() {
   const [users, setUsers] = useState<User[]>([]);
-  const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
   const [openDialog, setOpenDialog] = useState(false);
+  const [openResetPasswordDialog, setOpenResetPasswordDialog] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [stats, setStats] = useState({ total: 0, active: 0, inactive: 0, admins: 0 });
-  const [snackbar, setSnackbar] = useState({ 
-    open: false, 
-    message: "", 
-    severity: "success" as "success" | "error" 
+  const [newPassword, setNewPassword] = useState("");
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: "",
+    severity: "success" as "success" | "error",
   });
-  
+
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     password: "",
-    role: "User" as User["role"],
-    status: "Active" as User["status"],
+    role: "User",
+    status: "Active",
   });
+
+  const roles = ["User", "Admin", "Manager"];
+  const statuses = ["Active", "Inactive"];
 
   const loadData = async () => {
     try {
       setLoading(true);
-      const [usersData, statsData] = await Promise.all([
-        userService.getAll(),
-        userService.getStats(),
-      ]);
-      setUsers(usersData);
-      setFilteredUsers(usersData);
-      setStats(statsData);
+      const data = await userService.getAll();
+      setUsers(data);
     } catch (error) {
       console.error("Error loading users:", error);
       showSnackbar("Failed to load users", "error");
@@ -81,15 +80,6 @@ function Users() {
     loadData();
   }, []);
 
-  useEffect(() => {
-    const filtered = users.filter(user =>
-      user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.role.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-    setFilteredUsers(filtered);
-  }, [searchQuery, users]);
-
   const showSnackbar = (message: string, severity: "success" | "error") => {
     setSnackbar({ open: true, message, severity });
   };
@@ -98,11 +88,11 @@ function Users() {
     if (user) {
       setEditingUser(user);
       setFormData({
-        name: user.name,
-        email: user.email,
+        name: user.name || "",
+        email: user.email || "",
         password: "",
-        role: user.role,
-        status: user.status,
+        role: user.role || "User",
+        status: user.status || "Active",
       });
     } else {
       setEditingUser(null);
@@ -122,32 +112,71 @@ function Users() {
     setEditingUser(null);
   };
 
-  const handleSaveUser = async () => {
+  const handleOpenResetPassword = (user: User) => {
+    setSelectedUser(user);
+    setNewPassword("");
+    setOpenResetPasswordDialog(true);
+  };
+
+  const handleCloseResetPassword = () => {
+    setOpenResetPasswordDialog(false);
+    setSelectedUser(null);
+    setNewPassword("");
+  };
+
+  const handleResetPassword = async () => {
+    if (!selectedUser) return;
+    if (!newPassword.trim() || newPassword.length < 6) {
+      showSnackbar("Password must be at least 6 characters", "error");
+      return;
+    }
+
     try {
-      const userData = {
+      await userService.resetPassword(selectedUser.id, newPassword);
+      showSnackbar(`Password reset for "${selectedUser.name}" successfully!`, "success");
+      handleCloseResetPassword();
+    } catch (error: any) {
+      console.error("Error resetting password:", error);
+      const errorMessage = error?.response?.data?.message || "Failed to reset password";
+      showSnackbar(errorMessage, "error");
+    }
+  };
+
+  const handleSaveUser = async () => {
+    if (!formData.name.trim()) {
+      showSnackbar("Name is required", "error");
+      return;
+    }
+    if (!formData.email.trim()) {
+      showSnackbar("Email is required", "error");
+      return;
+    }
+    if (!editingUser && !formData.password.trim()) {
+      showSnackbar("Password is required for new users", "error");
+      return;
+    }
+
+    try {
+      const dataToSend = {
         name: formData.name,
         email: formData.email,
-        password: formData.password,
+        password: formData.password || undefined,
         role: formData.role,
         status: formData.status,
       };
 
       if (editingUser) {
-        await userService.update(editingUser.id, userData);
+        await userService.update(editingUser.id, dataToSend);
         showSnackbar("User updated successfully!", "success");
       } else {
-        if (!formData.password || formData.password.length < 6) {
-          showSnackbar("Password must be at least 6 characters", "error");
-          return;
-        }
-        await userService.create(userData);
+        await userService.create(dataToSend);
         showSnackbar("User created successfully!", "success");
       }
       handleCloseDialog();
       loadData();
     } catch (error: any) {
       console.error("Error saving user:", error);
-      const errorMessage = error.response?.data?.message || error.response?.data?.title || "Failed to save user";
+      const errorMessage = error?.response?.data?.message || "Failed to save user";
       showSnackbar(errorMessage, "error");
     }
   };
@@ -169,208 +198,240 @@ function Users() {
     switch (role) {
       case "Admin": return "error";
       case "Manager": return "warning";
-      case "User": return "info";
-      default: return "default";
+      default: return "info";
     }
   };
 
   const getStatusColor = (status: string) => {
-    return status === "Active" ? "success" : "error";
+    switch (status) {
+      case "Active": return "success";
+      default: return "default";
+    }
   };
 
   if (loading) {
     return (
-      <Box display="flex" justifyContent="center" py={8}>
-        <CircularProgress />
+      <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "60vh" }}>
+        <CircularProgress size={60} />
       </Box>
     );
   }
 
   return (
-    <Box p={3}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+    <Box sx={{ p: 3, bgcolor: "#f5f7fa", minHeight: "100vh" }}>
+      {/* Header */}
+      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 4 }}>
         <Box>
-          <Typography variant="h4" fontWeight="bold">
-            Users
+          <Typography variant="h4" sx={{ fontWeight: 700, color: "#1a237e" }}>
+            👤 Users
           </Typography>
-          <Typography color="text.secondary">
-            Manage all system users
+          <Typography sx={{ color: "#666", mt: 0.5 }}>
+            Manage system users and their permissions
           </Typography>
         </Box>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => handleOpenDialog()}
-        >
-          New User
-        </Button>
+        <Box sx={{ display: "flex", gap: 2 }}>
+          <Button
+            variant="outlined"
+            startIcon={<RefreshIcon />}
+            onClick={loadData}
+            sx={{ borderRadius: 2, textTransform: "none" }}
+          >
+            Refresh
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => handleOpenDialog()}
+            sx={{
+              borderRadius: 2,
+              textTransform: "none",
+              bgcolor: "#1a237e",
+              "&:hover": { bgcolor: "#0d1445" },
+            }}
+          >
+            Add User
+          </Button>
+        </Box>
       </Box>
 
-      <Grid container spacing={3} mb={4}>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
+      {/* Statistics Cards */}
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        <Grid item xs={12} sm={6} md={4}>
+          <Card sx={{ borderRadius: 3, boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}>
             <CardContent>
-              <Box display="flex" alignItems="center" justifyContent="space-between">
+              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <Box>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" sx={{ color: "#666", fontWeight: 500 }}>
                     Total Users
                   </Typography>
-                  <Typography variant="h4" fontWeight="bold">
-                    {stats.total}
+                  <Typography variant="h4" sx={{ fontWeight: 700, color: "#1a237e", mt: 0.5 }}>
+                    {users.length}
                   </Typography>
                 </Box>
-                <PeopleIcon sx={{ fontSize: 40, color: "#1976d2", opacity: 0.5 }} />
+                <Avatar sx={{ bgcolor: "#e8eaf6", width: 48, height: 48, color: "#1a237e" }}>
+                  <PersonIcon />
+                </Avatar>
               </Box>
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ borderLeft: 4, borderColor: "success.main" }}>
+
+        <Grid item xs={12} sm={6} md={4}>
+          <Card sx={{ borderRadius: 3, boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}>
             <CardContent>
-              <Box display="flex" alignItems="center" justifyContent="space-between">
+              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <Box>
-                  <Typography variant="body2" color="text.secondary">
-                    Active
-                  </Typography>
-                  <Typography variant="h4" fontWeight="bold" color="success.main">
-                    {stats.active}
-                  </Typography>
-                </Box>
-                <PersonIcon sx={{ fontSize: 40, color: "#2e7d32", opacity: 0.5 }} />
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ borderLeft: 4, borderColor: "error.main" }}>
-            <CardContent>
-              <Box display="flex" alignItems="center" justifyContent="space-between">
-                <Box>
-                  <Typography variant="body2" color="text.secondary">
-                    Inactive
-                  </Typography>
-                  <Typography variant="h4" fontWeight="bold" color="error.main">
-                    {stats.inactive}
-                  </Typography>
-                </Box>
-                <BlockIcon sx={{ fontSize: 40, color: "#d32f2f", opacity: 0.5 }} />
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ borderLeft: 4, borderColor: "warning.main" }}>
-            <CardContent>
-              <Box display="flex" alignItems="center" justifyContent="space-between">
-                <Box>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" sx={{ color: "#666", fontWeight: 500 }}>
                     Admins
                   </Typography>
-                  <Typography variant="h4" fontWeight="bold" color="warning.main">
-                    {stats.admins}
+                  <Typography variant="h4" sx={{ fontWeight: 700, color: "#d32f2f", mt: 0.5 }}>
+                    {users.filter(u => u.role === "Admin").length}
                   </Typography>
                 </Box>
-                <AdminPanelSettingsIcon sx={{ fontSize: 40, color: "#ed6c02", opacity: 0.5 }} />
+                <Avatar sx={{ bgcolor: "#ffebee", width: 48, height: 48, color: "#d32f2f" }}>
+                  <AdminPanelSettingsIcon />
+                </Avatar>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid item xs={12} sm={6} md={4}>
+          <Card sx={{ borderRadius: 3, boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}>
+            <CardContent>
+              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <Box>
+                  <Typography variant="body2" sx={{ color: "#666", fontWeight: 500 }}>
+                    Active Users
+                  </Typography>
+                  <Typography variant="h4" sx={{ fontWeight: 700, color: "#4caf50", mt: 0.5 }}>
+                    {users.filter(u => u.status === "Active").length}
+                  </Typography>
+                </Box>
+                <Avatar sx={{ bgcolor: "#e8f5e9", width: 48, height: 48, color: "#4caf50" }}>
+                  <PersonIcon />
+                </Avatar>
               </Box>
             </CardContent>
           </Card>
         </Grid>
       </Grid>
 
-      <Paper sx={{ p: 2 }}>
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-          <TextField
-            placeholder="Search users..."
-            size="small"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            sx={{ width: 300 }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon />
-                </InputAdornment>
-              ),
-            }}
-          />
-          <Typography variant="body2" color="text.secondary">
-            {filteredUsers.length} users found
-          </Typography>
-        </Box>
-
-        <TableContainer>
-          <Table>
-            <TableHead>
-              <TableRow sx={{ bgcolor: "#f5f5f5" }}>
-                <TableCell>ID</TableCell>
-                <TableCell>Name</TableCell>
-                <TableCell>Email</TableCell>
-                <TableCell>Role</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Created</TableCell>
-                <TableCell align="right">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {filteredUsers.length === 0 ? (
+      {/* Users Table */}
+      <Paper sx={{ borderRadius: 3, overflow: "hidden", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}>
+        {users.length === 0 ? (
+          <Box sx={{ p: 6, textAlign: "center" }}>
+            <PersonIcon sx={{ fontSize: 64, color: "#ccc", mb: 2 }} />
+            <Typography variant="h6" sx={{ color: "#666" }}>
+              No users found
+            </Typography>
+            <Typography variant="body2" sx={{ color: "#999", mt: 1 }}>
+              Click the "Add User" button to create your first user.
+            </Typography>
+          </Box>
+        ) : (
+          <TableContainer>
+            <Table>
+              <TableHead sx={{ bgcolor: "#f5f7fa" }}>
                 <TableRow>
-                  <TableCell colSpan={7} align="center">
-                    No users found
-                  </TableCell>
+                  <TableCell sx={{ fontWeight: 600, color: "#1a237e" }}>User</TableCell>
+                  <TableCell sx={{ fontWeight: 600, color: "#1a237e" }}>Email</TableCell>
+                  <TableCell sx={{ fontWeight: 600, color: "#1a237e" }}>Role</TableCell>
+                  <TableCell sx={{ fontWeight: 600, color: "#1a237e" }}>Status</TableCell>
+                  <TableCell sx={{ fontWeight: 600, color: "#1a237e" }}>Actions</TableCell>
                 </TableRow>
-              ) : (
-                filteredUsers.map((user) => (
-                  <TableRow key={user.id} sx={{ "&:hover": { bgcolor: "#fafafa" } }}>
-                    <TableCell>#{user.id}</TableCell>
-                    <TableCell>{user.name}</TableCell>
-                    <TableCell>{user.email}</TableCell>
+              </TableHead>
+              <TableBody>
+                {users.map((user) => (
+                  <TableRow key={user.id} sx={{ "&:hover": { bgcolor: "#f8f9ff" } }}>
+                    <TableCell>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                        <Avatar sx={{ bgcolor: "#1a237e", width: 36, height: 36 }}>
+                          {user.name?.[0] || "U"}
+                        </Avatar>
+                        <Typography sx={{ fontWeight: 600 }}>{user.name}</Typography>
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                        <EmailIcon sx={{ fontSize: 16, color: "#999" }} />
+                        <Typography variant="body2">{user.email}</Typography>
+                      </Box>
+                    </TableCell>
                     <TableCell>
                       <Chip
                         label={user.role}
-                        color={getRoleColor(user.role)}
                         size="small"
+                        color={getRoleColor(user.role) as any}
+                        sx={{ fontWeight: 500, borderRadius: 2 }}
                       />
                     </TableCell>
                     <TableCell>
                       <Chip
                         label={user.status}
-                        color={getStatusColor(user.status)}
                         size="small"
+                        color={getStatusColor(user.status) as any}
+                        sx={{ fontWeight: 500, borderRadius: 2 }}
                       />
                     </TableCell>
                     <TableCell>
-                      {new Date(user.createdAt).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell align="right">
-                      <IconButton
-                        size="small"
-                        color="primary"
-                        onClick={() => handleOpenDialog(user)}
-                      >
-                        <EditIcon />
-                      </IconButton>
-                      <IconButton
-                        size="small"
-                        color="error"
-                        onClick={() => handleDeleteUser(user.id)}
-                      >
-                        <DeleteIcon />
-                      </IconButton>
+                      <Box sx={{ display: "flex", gap: 1 }}>
+                        <Tooltip title="Edit user">
+                          <IconButton
+                            size="small"
+                            onClick={() => handleOpenDialog(user)}
+                            sx={{
+                              color: "#1a237e",
+                              bgcolor: "#e8eaf6",
+                              "&:hover": { bgcolor: "#c5cae9" },
+                            }}
+                          >
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Reset password">
+                          <IconButton
+                            size="small"
+                            onClick={() => handleOpenResetPassword(user)}
+                            sx={{
+                              color: "#e65100",
+                              bgcolor: "#fff3e0",
+                              "&:hover": { bgcolor: "#ffe0b2" },
+                            }}
+                          >
+                            <VpnKeyIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Delete user">
+                          <IconButton
+                            size="small"
+                            onClick={() => handleDeleteUser(user.id)}
+                            sx={{
+                              color: "#f44336",
+                              bgcolor: "#ffebee",
+                              "&:hover": { bgcolor: "#ffcdd2" },
+                            }}
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
       </Paper>
 
+      {/* Add/Edit Dialog */}
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
-        <DialogTitle>
-          {editingUser ? "Edit User" : "Create New User"}
+        <DialogTitle sx={{ bgcolor: "#1a237e", color: "white" }}>
+          {editingUser ? "✏️ Edit User" : "➕ Add User"}
         </DialogTitle>
-        <DialogContent>
-          <Box display="flex" flexDirection="column" gap={2} mt={1}>
+        <DialogContent sx={{ mt: 2 }}>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
             <TextField
               label="Name"
               fullWidth
@@ -378,65 +439,136 @@ function Users() {
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
             />
+
             <TextField
               label="Email"
-              type="email"
               fullWidth
               required
+              type="email"
               value={formData.email}
               onChange={(e) => setFormData({ ...formData, email: e.target.value })}
             />
+
             {!editingUser && (
               <TextField
                 label="Password"
-                type="password"
                 fullWidth
                 required
+                type="password"
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                helperText="Password must be at least 6 characters"
               />
             )}
+
+            {editingUser && (
+              <TextField
+                label="New Password (leave empty to keep current)"
+                fullWidth
+                type="password"
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+              />
+            )}
+
             <TextField
               select
               label="Role"
               fullWidth
               value={formData.role}
-              onChange={(e) => setFormData({ ...formData, role: e.target.value as User["role"] })}
+              onChange={(e) => setFormData({ ...formData, role: e.target.value })}
             >
-              <MenuItem value="Admin">Admin</MenuItem>
-              <MenuItem value="Manager">Manager</MenuItem>
-              <MenuItem value="User">User</MenuItem>
+              {roles.map((role) => (
+                <MenuItem key={role} value={role}>{role}</MenuItem>
+              ))}
             </TextField>
+
             <TextField
               select
               label="Status"
               fullWidth
               value={formData.status}
-              onChange={(e) => setFormData({ ...formData, status: e.target.value as User["status"] })}
+              onChange={(e) => setFormData({ ...formData, status: e.target.value })}
             >
-              <MenuItem value="Active">Active</MenuItem>
-              <MenuItem value="Inactive">Inactive</MenuItem>
+              {statuses.map((status) => (
+                <MenuItem key={status} value={status}>{status}</MenuItem>
+              ))}
             </TextField>
           </Box>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDialog}>Cancel</Button>
-          <Button variant="contained" onClick={handleSaveUser}>
-            {editingUser ? "Update" : "Create"}
+        <DialogActions sx={{ p: 3, gap: 1 }}>
+          <Button onClick={handleCloseDialog} variant="outlined" color="inherit" sx={{ borderRadius: 2, textTransform: "none" }}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleSaveUser}
+            sx={{
+              borderRadius: 2,
+              textTransform: "none",
+              bgcolor: "#1a237e",
+              "&:hover": { bgcolor: "#0d1445" },
+            }}
+          >
+            {editingUser ? "Update" : "Add"}
           </Button>
         </DialogActions>
       </Dialog>
 
+      {/* Reset Password Dialog */}
+      <Dialog open={openResetPasswordDialog} onClose={handleCloseResetPassword} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ bgcolor: "#e65100", color: "white" }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <VpnKeyIcon />
+            Reset Password
+          </Box>
+        </DialogTitle>
+        <DialogContent sx={{ mt: 2 }}>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
+            <Typography variant="body2" sx={{ color: "#666" }}>
+              Reset password for: <strong>{selectedUser?.name}</strong> ({selectedUser?.email})
+            </Typography>
+            <TextField
+              label="New Password"
+              fullWidth
+              type="password"
+              required
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="Enter new password (min 6 characters)"
+              helperText="Password must be at least 6 characters"
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 3, gap: 1 }}>
+          <Button onClick={handleCloseResetPassword} variant="outlined" color="inherit" sx={{ borderRadius: 2, textTransform: "none" }}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleResetPassword}
+            sx={{
+              borderRadius: 2,
+              textTransform: "none",
+              bgcolor: "#e65100",
+              "&:hover": { bgcolor: "#bf360c" },
+            }}
+          >
+            Reset Password
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Snackbar */}
       <Snackbar
         open={snackbar.open}
-        autoHideDuration={3000}
+        autoHideDuration={4000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
       >
         <Alert
           severity={snackbar.severity}
           onClose={() => setSnackbar({ ...snackbar, open: false })}
+          sx={{ borderRadius: 2 }}
         >
           {snackbar.message}
         </Alert>

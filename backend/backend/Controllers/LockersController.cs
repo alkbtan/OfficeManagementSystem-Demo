@@ -16,12 +16,16 @@ public class LockersController : ControllerBase
         _context = context;
     }
 
+    // GET: api/Lockers
     [HttpGet]
     public async Task<ActionResult<IEnumerable<Locker>>> GetAll()
     {
-        return await _context.Lockers.ToListAsync();
+        return await _context.Lockers
+            .OrderBy(l => l.Number)
+            .ToListAsync();
     }
 
+    // GET: api/Lockers/{id}
     [HttpGet("{id}")]
     public async Task<ActionResult<Locker>> GetById(int id)
     {
@@ -31,31 +35,66 @@ public class LockersController : ControllerBase
         return locker;
     }
 
+    // POST: api/Lockers
     [HttpPost]
-    public async Task<ActionResult<Locker>> Create(Locker locker)
+    public async Task<ActionResult<Locker>> Create([FromBody] Locker locker)
     {
+        // Validate required fields
+        if (string.IsNullOrWhiteSpace(locker.Number))
+            return BadRequest(new { message = "Locker number is required" });
+
+        if (string.IsNullOrWhiteSpace(locker.Location))
+            return BadRequest(new { message = "Location is required" });
+
+        // Check for duplicate locker number
+        var existing = await _context.Lockers
+            .FirstOrDefaultAsync(l => l.Number == locker.Number);
+        if (existing != null)
+            return BadRequest(new { message = $"Locker {locker.Number} already exists" });
+
         locker.CreatedAt = DateTime.UtcNow;
-        // If AssignedTo is 0, set to null
-        if (locker.AssignedTo == 0)
-        {
-            locker.AssignedTo = null;
-        }
         _context.Lockers.Add(locker);
         await _context.SaveChangesAsync();
+
         return Ok(locker);
     }
 
+    // PUT: api/Lockers/{id}
     [HttpPut("{id}")]
-    public async Task<IActionResult> Update(int id, Locker locker)
+    public async Task<IActionResult> Update(int id, [FromBody] Locker locker)
     {
-        if (id != locker.Id)
-            return BadRequest();
+        // Check if locker exists
+        var existingLocker = await _context.Lockers.FindAsync(id);
+        if (existingLocker == null)
+            return NotFound(new { message = "Locker not found" });
 
-        _context.Entry(locker).State = EntityState.Modified;
+        // Validate required fields
+        if (string.IsNullOrWhiteSpace(locker.Number))
+            return BadRequest(new { message = "Locker number is required" });
+
+        if (string.IsNullOrWhiteSpace(locker.Location))
+            return BadRequest(new { message = "Location is required" });
+
+        // Check for duplicate locker number (excluding current locker)
+        var duplicate = await _context.Lockers
+            .FirstOrDefaultAsync(l => l.Number == locker.Number && l.Id != id);
+        if (duplicate != null)
+            return BadRequest(new { message = $"Locker {locker.Number} already exists" });
+
+        // Update fields
+        existingLocker.Number = locker.Number;
+        existingLocker.Location = locker.Location;
+        existingLocker.Status = locker.Status;
+        existingLocker.LockType = locker.LockType;
+        existingLocker.AssignedTo = locker.AssignedTo;
+        existingLocker.AssignedToName = locker.AssignedToName;
+        existingLocker.BiometricEnabled = locker.BiometricEnabled;
+
         await _context.SaveChangesAsync();
-        return Ok(locker);
+        return Ok(existingLocker);
     }
 
+    // DELETE: api/Lockers/{id}
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {
@@ -67,56 +106,4 @@ public class LockersController : ControllerBase
         await _context.SaveChangesAsync();
         return NoContent();
     }
-
-    [HttpGet("stats")]
-    public async Task<ActionResult<object>> GetStats()
-    {
-        var total = await _context.Lockers.CountAsync();
-        var available = await _context.Lockers.CountAsync(l => l.Status == "Available");
-        var occupied = await _context.Lockers.CountAsync(l => l.Status == "Occupied");
-        var maintenance = await _context.Lockers.CountAsync(l => l.Status == "Maintenance");
-        var reserved = await _context.Lockers.CountAsync(l => l.Status == "Reserved");
-
-        // Calculate needed lockers for 400 employees
-        const int totalEmployees = 400;
-        var neededLockers = Math.Max(0, totalEmployees - total);
-
-        return Ok(new { total, available, occupied, maintenance, reserved, neededLockers });
-    }
-
-    [HttpPost("{id}/assign")]
-    public async Task<IActionResult> AssignLocker(int id, [FromBody] AssignLockerRequest request)
-    {
-        var locker = await _context.Lockers.FindAsync(id);
-        if (locker == null)
-            return NotFound();
-
-        locker.AssignedTo = request.EmployeeId;
-        locker.Status = "Occupied";
-
-        await _context.SaveChangesAsync();
-        return Ok();
-    }
-
-    [HttpPost("{id}/biometric")]
-    public async Task<IActionResult> ToggleBiometric(int id)
-    {
-        var locker = await _context.Lockers.FindAsync(id);
-        if (locker == null)
-            return NotFound();
-
-        locker.BiometricEnabled = !locker.BiometricEnabled;
-        if (locker.BiometricEnabled && locker.LockType != "Biometric")
-        {
-            locker.LockType = "Biometric";
-        }
-
-        await _context.SaveChangesAsync();
-        return Ok(new { biometricEnabled = locker.BiometricEnabled });
-    }
-}
-
-public class AssignLockerRequest
-{
-    public int EmployeeId { get; set; }
 }

@@ -10,16 +10,21 @@ public class Sport
     [MaxLength(100)]
     public string Name { get; set; } = string.Empty;
 
-    [MaxLength(50)]
-    public string Type { get; set; } = string.Empty; // Futsal, Table Tennis, Chess, Basketball
+    [Required]
+    public DateTime Date { get; set; }
 
-    [MaxLength(100)]
-    public string Teams { get; set; } = string.Empty;
+    [Required]
+    [MaxLength(10)]
+    public string Time { get; set; } = string.Empty;
 
-    public DateTime? NextMatch { get; set; }
+    [MaxLength(500)]
+    public string Preparation { get; set; } = string.Empty;
+
+    [MaxLength(500)]
+    public string Equipment { get; set; } = string.Empty;
 
     [MaxLength(20)]
-    public string Status { get; set; } = "Active"; // Active, Completed, Upcoming
+    public string Status { get; set; } = "Pending";
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

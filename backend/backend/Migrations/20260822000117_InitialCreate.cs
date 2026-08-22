@@ -27,7 +27,7 @@ namespace OfficeManagementAPI.Migrations
                     Status = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false, defaultValue: "Operational"),
                     LastMaintenance = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     TotalMaintenanceCost = table.Column<decimal>(type: "numeric(18,2)", precision: 18, scale: 2, nullable: false),
-                    MaintenanceCount = table.Column<int>(type: "integer", nullable: false),
+                    MaintenanceCount = table.Column<int>(type: "integer", nullable: false, defaultValue: 0),
                     CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },
                 constraints: table =>
@@ -47,8 +47,7 @@ namespace OfficeManagementAPI.Migrations
                     SerialNumber = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
                     Status = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false, defaultValue: "Available"),
                     AssignedTo = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
-                    PurchaseDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    WarrantyExpiry = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    Location = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },
                 constraints: table =>
@@ -84,9 +83,13 @@ namespace OfficeManagementAPI.Migrations
                     Name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
                     Type = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
                     Category = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    Supplier = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    Date = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    Amount = table.Column<decimal>(type: "numeric(18,2)", precision: 18, scale: 2, nullable: false),
+                    Status = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
                     Description = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
+                    FilePath = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: false),
                     FileSize = table.Column<long>(type: "bigint", nullable: false),
-                    FilePath = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
                     UploadDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },
@@ -106,6 +109,8 @@ namespace OfficeManagementAPI.Migrations
                     Email = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
                     Department = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
                     Status = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false, defaultValue: "Active"),
+                    Location = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
+                    Birthday = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },
                 constraints: table =>
@@ -122,9 +127,12 @@ namespace OfficeManagementAPI.Migrations
                     Title = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
                     Description = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
                     EventDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    Time = table.Column<string>(type: "character varying(10)", maxLength: 10, nullable: false),
                     Location = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
                     Type = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false, defaultValue: "General"),
                     Status = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false, defaultValue: "Upcoming"),
+                    Preparation = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
+                    Equipment = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
                     CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },
                 constraints: table =>
@@ -142,10 +150,10 @@ namespace OfficeManagementAPI.Migrations
                     Category = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
                     Quantity = table.Column<int>(type: "integer", nullable: false),
                     MinStock = table.Column<int>(type: "integer", nullable: false),
-                    MaxStock = table.Column<int>(type: "integer", nullable: false),
-                    Unit = table.Column<string>(type: "character varying(10)", maxLength: 10, nullable: false),
-                    PurchasePrice = table.Column<decimal>(type: "numeric(18,2)", precision: 18, scale: 2, nullable: false),
-                    Consumption = table.Column<decimal>(type: "numeric(18,2)", precision: 18, scale: 2, nullable: false),
+                    Unit = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
+                    Supplier = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    PurchaseDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    Status = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false, defaultValue: "In Stock"),
                     LastUpdated = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },
                 constraints: table =>
@@ -163,7 +171,8 @@ namespace OfficeManagementAPI.Migrations
                     Location = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
                     Status = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false, defaultValue: "Available"),
                     LockType = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false, defaultValue: "Key"),
-                    AssignedTo = table.Column<int>(type: "integer", nullable: true),
+                    AssignedTo = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
+                    AssignedToName = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
                     BiometricEnabled = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
                     CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },
@@ -223,10 +232,11 @@ namespace OfficeManagementAPI.Migrations
                     Id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     Name = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
-                    Type = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
-                    Teams = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
-                    NextMatch = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    Status = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false, defaultValue: "Active"),
+                    Date = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    Time = table.Column<string>(type: "character varying(10)", maxLength: 10, nullable: false),
+                    Preparation = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
+                    Equipment = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
+                    Status = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false, defaultValue: "Pending"),
                     CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },
                 constraints: table =>
@@ -244,9 +254,14 @@ namespace OfficeManagementAPI.Migrations
                     Description = table.Column<string>(type: "character varying(1000)", maxLength: 1000, nullable: false),
                     Status = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false, defaultValue: "Open"),
                     Priority = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false, defaultValue: "Medium"),
-                    AssignedTo = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
-                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    UpdatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
+                    AssignedTo = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    JiraTicket = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
+                    Link = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
+                    Amount = table.Column<decimal>(type: "numeric(18,2)", precision: 18, scale: 2, nullable: false),
+                    Date = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    Floor = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
+                    Company = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },
                 constraints: table =>
                 {

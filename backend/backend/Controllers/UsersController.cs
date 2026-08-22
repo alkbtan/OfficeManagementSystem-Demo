@@ -16,12 +16,16 @@ public class UsersController : ControllerBase
         _context = context;
     }
 
+    // GET: api/Users
     [HttpGet]
     public async Task<ActionResult<IEnumerable<User>>> GetAll()
     {
-        return await _context.Users.ToListAsync();
+        return await _context.Users
+            .OrderBy(u => u.Name)
+            .ToListAsync();
     }
 
+    // GET: api/Users/{id}
     [HttpGet("{id}")]
     public async Task<ActionResult<User>> GetById(int id)
     {
@@ -31,40 +35,97 @@ public class UsersController : ControllerBase
         return user;
     }
 
+    // POST: api/Users
     [HttpPost]
-    public async Task<ActionResult<User>> Create(User user)
+    public async Task<ActionResult<User>> Create([FromBody] User user)
     {
-        // Validate password
-        if (string.IsNullOrEmpty(user.Password) || user.Password.Length < 6)
-        {
-            return BadRequest(new { message = "Password must be at least 6 characters" });
-        }
+        if (string.IsNullOrWhiteSpace(user.Name))
+            return BadRequest(new { message = "Name is required" });
+
+        if (string.IsNullOrWhiteSpace(user.Email))
+            return BadRequest(new { message = "Email is required" });
+
+        if (string.IsNullOrWhiteSpace(user.Password))
+            return BadRequest(new { message = "Password is required" });
 
         // Check if email already exists
-        var existingUser = await _context.Users
-            .FirstOrDefaultAsync(u => u.Email == user.Email);
-        if (existingUser != null)
-        {
+        var existing = await _context.Users.FirstOrDefaultAsync(u => u.Email == user.Email);
+        if (existing != null)
             return BadRequest(new { message = "Email already exists" });
-        }
 
+        // Hash password
+        user.Password = BCrypt.Net.BCrypt.HashPassword(user.Password);
         user.CreatedAt = DateTime.UtcNow;
+
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
+
+        // Don't return password
+        user.Password = "";
         return Ok(user);
     }
 
+    // PUT: api/Users/{id}
     [HttpPut("{id}")]
-    public async Task<IActionResult> Update(int id, User user)
+    public async Task<IActionResult> Update(int id, [FromBody] User user)
     {
-        if (id != user.Id)
-            return BadRequest();
+        var existingUser = await _context.Users.FindAsync(id);
+        if (existingUser == null)
+            return NotFound(new { message = "User not found" });
 
-        _context.Entry(user).State = EntityState.Modified;
+        if (string.IsNullOrWhiteSpace(user.Name))
+            return BadRequest(new { message = "Name is required" });
+
+        if (string.IsNullOrWhiteSpace(user.Email))
+            return BadRequest(new { message = "Email is required" });
+
+        // Check if email already exists (excluding current user)
+        var existing = await _context.Users
+            .FirstOrDefaultAsync(u => u.Email == user.Email && u.Id != id);
+        if (existing != null)
+            return BadRequest(new { message = "Email already exists" });
+
+        // Update fields
+        existingUser.Name = user.Name;
+        existingUser.Email = user.Email;
+        existingUser.Role = user.Role;
+        existingUser.Status = user.Status;
+
+        // Update password if provided
+        if (!string.IsNullOrWhiteSpace(user.Password))
+        {
+            existingUser.Password = BCrypt.Net.BCrypt.HashPassword(user.Password);
+        }
+
         await _context.SaveChangesAsync();
-        return Ok(user);
+
+        // Don't return password
+        existingUser.Password = "";
+        return Ok(existingUser);
     }
 
+    // PUT: api/Users/{id}/reset-password
+    [HttpPut("{id}/reset-password")]
+    public async Task<IActionResult> ResetPassword(int id, [FromBody] ResetPasswordRequest request)
+    {
+        var user = await _context.Users.FindAsync(id);
+        if (user == null)
+            return NotFound(new { message = "User not found" });
+
+        if (string.IsNullOrWhiteSpace(request.NewPassword))
+            return BadRequest(new { message = "New password is required" });
+
+        if (request.NewPassword.Length < 6)
+            return BadRequest(new { message = "Password must be at least 6 characters" });
+
+        // Hash new password
+        user.Password = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+        await _context.SaveChangesAsync();
+
+        return Ok(new { message = "Password reset successfully" });
+    }
+
+    // DELETE: api/Users/{id}
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {
@@ -74,17 +135,42 @@ public class UsersController : ControllerBase
 
         _context.Users.Remove(user);
         await _context.SaveChangesAsync();
+
         return NoContent();
     }
 
-    [HttpGet("stats")]
-    public async Task<ActionResult<object>> GetStats()
+    // POST: api/Users/login
+    [HttpPost("login")]
+    public async Task<ActionResult<object>> Login([FromBody] LoginRequest request)
     {
-        var total = await _context.Users.CountAsync();
-        var active = await _context.Users.CountAsync(u => u.Status == "Active");
-        var inactive = await _context.Users.CountAsync(u => u.Status != "Active");
-        var admins = await _context.Users.CountAsync(u => u.Role == "Admin");
+        var user = await _context.Users
+            .FirstOrDefaultAsync(u => u.Email == request.Email);
 
-        return Ok(new { total, active, inactive, admins });
+        if (user == null)
+            return Unauthorized(new { message = "Invalid email or password" });
+
+        if (user.Status != "Active")
+            return Unauthorized(new { message = "Account is inactive" });
+
+        // Verify password
+        if (!BCrypt.Net.BCrypt.Verify(request.Password, user.Password))
+            return Unauthorized(new { message = "Invalid email or password" });
+
+        // Don't return password
+        user.Password = "";
+
+        return Ok(new
+        {
+            user = user,
+            token = Convert.ToBase64String(Guid.NewGuid().ToByteArray())
+        });
     }
 }
+
+// ✅ Only keep ResetPasswordRequest
+public class ResetPasswordRequest
+{
+    public string NewPassword { get; set; } = string.Empty;
+}
+
+// ❌ LoginRequest is already defined in AuthController.cs - DO NOT add it here

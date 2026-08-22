@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "https://officemanagementsystem-demo.onrender.com/api",
+  baseURL: "http://localhost:5149/api",
   headers: {
     "Content-Type": "application/json",
   },
@@ -12,9 +12,14 @@ const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("token");
-
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+
+    // ✅ FIX: Remove Content-Type for FormData requests
+    // Let Axios set the correct multipart/form-data with boundary
+    if (config.data instanceof FormData) {
+      delete config.headers["Content-Type"];
     }
 
     return config;
@@ -24,16 +29,14 @@ api.interceptors.request.use(
   }
 );
 
-// Handle API responses
+// Handle 401 responses
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     // Handle network errors
     if (!error.response) {
-      console.error("Network error - please check the API connection");
-      return Promise.reject(
-        new Error("Network error - please check the API connection")
-      );
+      console.error("Network error - please check if backend is running");
+      return Promise.reject(new Error("Network error - please check if backend is running"));
     }
 
     // Handle 401 Unauthorized

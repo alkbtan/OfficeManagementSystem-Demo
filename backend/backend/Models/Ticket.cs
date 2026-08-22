@@ -20,9 +20,24 @@ public class Ticket
     public string Priority { get; set; } = "Medium";
 
     [MaxLength(100)]
-    public string? AssignedTo { get; set; }
+    public string AssignedTo { get; set; } = string.Empty;
+
+    // ✅ NEW FIELDS
+    [MaxLength(50)]
+    public string JiraTicket { get; set; } = string.Empty;
+
+    [MaxLength(500)]
+    public string Link { get; set; } = string.Empty;
+
+    public decimal Amount { get; set; }
+
+    public DateTime? Date { get; set; }
+
+    [MaxLength(20)]
+    public string Floor { get; set; } = string.Empty;
+
+    [MaxLength(100)]
+    public string Company { get; set; } = string.Empty;
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-
-    public DateTime? UpdatedAt { get; set; }
 }

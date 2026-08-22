@@ -26,9 +26,9 @@ public class Asset
     [MaxLength(100)]
     public string? AssignedTo { get; set; }
 
-    public DateTime PurchaseDate { get; set; }
-
-    public DateTime? WarrantyExpiry { get; set; }
+    // ✅ NEW FIELDS
+    [MaxLength(100)]
+    public string? Location { get; set; }
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

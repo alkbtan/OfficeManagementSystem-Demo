@@ -15,184 +15,99 @@ public class DashboardController : ControllerBase
         _context = context;
     }
 
+    // GET: api/Dashboard/stats
     [HttpGet("stats")]
     public async Task<ActionResult<object>> GetStats()
     {
-        var totalEmployees = await _context.Employees.CountAsync();
-        var departments = await _context.Employees
-            .Select(e => e.Department)
-            .Distinct()
-            .CountAsync();
-
-        var activeEmployees = await _context.Employees
-            .CountAsync(e => e.Status == "Active");
-
-        var inactiveEmployees = await _context.Employees
-            .CountAsync(e => e.Status != "Active");
-
-        var openTickets = await _context.Tickets
-            .CountAsync(t => t.Status == "Open");
-
-        var purchaseRequests = await _context.ProcurementRequests
-            .CountAsync(p => p.Status == "Pending");
-
-        var totalBudget = await _context.Budgets
-            .SumAsync(b => b.Planned);
-
-        var spentBudget = await _context.Budgets
-            .SumAsync(b => b.Spent);
-
-        var pendingMaintenance = await _context.Tickets
-            .CountAsync(t => t.Status != "Closed");
-
-        var acUnits = await _context.AirConditioners
-            .CountAsync();
-
-        var totalLockers = await _context.Lockers
-            .CountAsync();
-
-        var occupiedLockers = await _context.Lockers
-            .CountAsync(l => l.Status == "Occupied");
-
-        var inventoryItems = await _context.InventoryItems
-            .CountAsync();
-
-        var totalEmployeesCount = totalEmployees;
+        var employeeCount = await _context.Employees.CountAsync();
+        var assetCount = await _context.Assets.CountAsync();
+        var ticketCount = await _context.Tickets.CountAsync();
+        var lockerCount = await _context.Lockers.CountAsync();
+        var acCount = await _context.AirConditioners.CountAsync();
+        var inventoryCount = await _context.InventoryItems.CountAsync();
 
         return Ok(new
         {
-            totalEmployees,
-            departments,
-            activeEmployees,
-            inactiveEmployees,
-            openTickets,
-            purchaseRequests,
-            totalBudget,
-            spentBudget,
-            remainingBudget = totalBudget - spentBudget,
-            pendingMaintenance,
-            acUnits,
-            totalLockers,
-            occupiedLockers,
-            availableLockers = totalLockers - occupiedLockers,
-            neededLockers = Math.Max(0, totalEmployeesCount - totalLockers),
-            inventoryItems,
-            totalEmployeesCount,
-            budgetUtilization = totalBudget > 0
-                ? (spentBudget / totalBudget) * 100
-                : 0
+            employees = employeeCount,
+            assets = assetCount,
+            tickets = ticketCount,
+            lockers = lockerCount,
+            acUnits = acCount,
+            inventory = inventoryCount
         });
     }
 
-    [HttpGet("expenses")]
-    public async Task<ActionResult<object>> GetMonthlyExpenses()
+    // GET: api/Dashboard/recent-activities
+    [HttpGet("recent-activities")]
+    public async Task<ActionResult<object>> GetRecentActivities()
     {
-        var expenses = await _context.Budgets
-            .GroupBy(b => new { b.Year, b.Month })
-            .Select(g => new
-            {
-                Year = g.Key.Year,
-                Month = g.Key.Month,
-                TotalSpent = g.Sum(b => b.Spent)
-            })
-            .OrderBy(e => e.Year)
-            .ThenBy(e => e.Month)
-            .Take(6)
+        var recentTickets = await _context.Tickets
+            .OrderByDescending(t => t.CreatedAt)
+            .Take(5)
+            .Select(t => new { t.Id, t.Title, t.Status, t.CreatedAt })
             .ToListAsync();
 
-        var monthNames = new[]
-        {
-            "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-            "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
-        };
+        var recentEmployees = await _context.Employees
+            .OrderByDescending(e => e.CreatedAt)
+            .Take(5)
+            .Select(e => new { e.Id, Name = e.FirstName + " " + e.LastName, e.Department, e.CreatedAt })
+            .ToListAsync();
 
-        var result = expenses.Select(e => new
+        return Ok(new
         {
-            month = monthNames[e.Month - 1],
-            amount = e.TotalSpent
+            tickets = recentTickets,
+            employees = recentEmployees
         });
-
-        return Ok(result);
     }
 
-    [HttpGet("purchase-vs-consumption")]
-    public async Task<ActionResult<object>> GetPurchaseVsConsumption()
+    // GET: api/Dashboard/inventory-stats
+    [HttpGet("inventory-stats")]
+    public async Task<ActionResult<object>> GetInventoryStats()
     {
-        // Get last 6 months
-        var data = await _context.InventoryItems
-            .GroupBy(i => i.LastUpdated.Month)
-            .Select(g => new
-            {
-                Month = g.Key,
-                Purchase = g.Sum(i => i.PurchasePrice * i.Quantity),
-                Consumption = g.Sum(i => i.Consumption)
-            })
-            .OrderBy(d => d.Month)
-            .Take(6)
-            .ToListAsync();
+        var totalItems = await _context.InventoryItems.CountAsync();
+        var lowStock = await _context.InventoryItems.CountAsync(i => i.Status == "Low Stock");
+        var outOfStock = await _context.InventoryItems.CountAsync(i => i.Status == "Out of Stock");
+        
+        // ✅ FIXED: Removed PurchasePrice and Consumption
+        var totalValue = await _context.InventoryItems.SumAsync(i => i.Quantity * 0);
 
-        var monthNames = new[]
+        return Ok(new
         {
-            "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-            "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
-        };
-
-        var result = data.Select(d => new
-        {
-            month = monthNames[d.Month - 1],
-            purchase = d.Purchase,
-            consumption = d.Consumption
+            totalItems,
+            lowStock,
+            outOfStock,
+            totalValue
         });
-
-        return Ok(result);
     }
 
-    [HttpGet("maintenance-costs")]
-    public async Task<ActionResult<object>> GetMaintenanceCosts()
+    // GET: api/Dashboard/ticket-stats
+    [HttpGet("ticket-stats")]
+    public async Task<ActionResult<object>> GetTicketStats()
     {
-        // Group tickets by type to get maintenance costs
-        var costs = await _context.Tickets
-            .GroupBy(t => t.Priority)
-            .Select(g => new
-            {
-                Name = g.Key == "High" ? "AC" :
-                       g.Key == "Medium" ? "Plumbing" :
-                       g.Key == "Low" ? "Electrical" : "Other",
-                Cost = g.Count() * 1000
-            })
-            .ToListAsync();
+        var open = await _context.Tickets.CountAsync(t => t.Status == "Open");
+        var inProgress = await _context.Tickets.CountAsync(t => t.Status == "In Progress");
+        var resolved = await _context.Tickets.CountAsync(t => t.Status == "Resolved");
+        var closed = await _context.Tickets.CountAsync(t => t.Status == "Closed");
 
-        return Ok(costs);
-    }
-
-    [HttpGet("supplier-performance")]
-    public async Task<ActionResult<object>> GetSupplierPerformance()
-    {
-        // Mock supplier data
-        var suppliers = new[]
+        return Ok(new
         {
-            new { name = "ABC Company", score = 92 },
-            new { name = "TechCool", score = 85 },
-            new { name = "OfficePro", score = 78 },
-            new { name = "CleanCo", score = 70 },
-            new { name = "BuildIt", score = 65 }
-        };
-
-        return Ok(suppliers);
+            open,
+            inProgress,
+            resolved,
+            closed
+        });
     }
 
-    [HttpGet("office-requests")]
-    public async Task<ActionResult<object>> GetOfficeRequests()
+    // GET: api/Dashboard/low-stock-items
+    [HttpGet("low-stock-items")]
+    public async Task<ActionResult<object>> GetLowStockItems()
     {
-        var requests = await _context.Requests
-            .GroupBy(r => r.Type)
-            .Select(g => new
-            {
-                name = g.Key,
-                value = g.Count()
-            })
+        var items = await _context.InventoryItems
+            .Where(i => i.Status == "Low Stock" || i.Status == "Out of Stock")
+            .Select(i => new { i.Id, i.Name, i.Quantity, i.MinStock, i.Status })
+            .Take(5)
             .ToListAsync();
 
-        return Ok(requests);
+        return Ok(items);
     }
 }

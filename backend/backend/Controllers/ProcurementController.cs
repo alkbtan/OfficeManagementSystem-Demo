@@ -39,50 +39,22 @@ public class ProcurementController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<ProcurementRequest>> Create([FromBody] ProcurementRequest request)
     {
-        // Validate Model State first
-        if (!ModelState.IsValid)
-        {
-            var errors = ModelState.Values
-                .SelectMany(v => v.Errors)
-                .Select(e => e.ErrorMessage)
-                .ToList();
-            
-            return BadRequest(new { 
-                message = "Validation failed", 
-                errors = errors 
-            });
-        }
+        if (string.IsNullOrWhiteSpace(request.RequestNumber))
+            return BadRequest(new { message = "Request Number is required" });
 
-        // Validate required fields
-        if (string.IsNullOrEmpty(request.Department))
-        {
+        if (string.IsNullOrWhiteSpace(request.Department))
             return BadRequest(new { message = "Department is required" });
-        }
-        if (string.IsNullOrEmpty(request.Requester))
-        {
-            return BadRequest(new { message = "Requester name is required" });
-        }
-        if (string.IsNullOrEmpty(request.Vendor))
-        {
-            return BadRequest(new { message = "Vendor name is required" });
-        }
-        if (string.IsNullOrEmpty(request.Items))
-        {
-            return BadRequest(new { message = "Items are required" });
-        }
-        if (request.TotalAmount <= 0)
-        {
-            return BadRequest(new { message = "Total amount must be greater than 0" });
-        }
 
-        // Auto-generate request number
-        request.RequestNumber = $"PR-{DateTime.Now.Year}-{DateTime.Now:yyyyMMdd}-{new Random().Next(1000, 9999)}";
-        request.RequestDate = DateTime.UtcNow;
+        if (string.IsNullOrWhiteSpace(request.Requester))
+            return BadRequest(new { message = "Requester is required" });
+
+        if (string.IsNullOrWhiteSpace(request.Vendor))
+            return BadRequest(new { message = "Vendor is required" });
+
         request.CreatedAt = DateTime.UtcNow;
-        request.Status = "Pending";
-        
         _context.ProcurementRequests.Add(request);
         await _context.SaveChangesAsync();
+
         return Ok(request);
     }
 
@@ -90,47 +62,38 @@ public class ProcurementController : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(int id, [FromBody] ProcurementRequest request)
     {
-        // Validate ID match
-        if (id != request.Id)
-            return BadRequest(new { message = "ID mismatch" });
-
         // Check if request exists
         var existingRequest = await _context.ProcurementRequests.FindAsync(id);
         if (existingRequest == null)
-            return NotFound(new { message = "Request not found" });
+            return NotFound(new { message = "Procurement request not found" });
 
-        // Validate fields
-        if (string.IsNullOrEmpty(request.Department))
-        {
+        // Validate required fields
+        if (string.IsNullOrWhiteSpace(request.RequestNumber))
+            return BadRequest(new { message = "Request Number is required" });
+
+        if (string.IsNullOrWhiteSpace(request.Department))
             return BadRequest(new { message = "Department is required" });
-        }
-        if (string.IsNullOrEmpty(request.Requester))
-        {
-            return BadRequest(new { message = "Requester name is required" });
-        }
-        if (string.IsNullOrEmpty(request.Vendor))
-        {
-            return BadRequest(new { message = "Vendor name is required" });
-        }
-        if (string.IsNullOrEmpty(request.Items))
-        {
-            return BadRequest(new { message = "Items are required" });
-        }
-        if (request.TotalAmount <= 0)
-        {
-            return BadRequest(new { message = "Total amount must be greater than 0" });
-        }
 
-        // Update only the fields that can be changed
+        if (string.IsNullOrWhiteSpace(request.Requester))
+            return BadRequest(new { message = "Requester is required" });
+
+        if (string.IsNullOrWhiteSpace(request.Vendor))
+            return BadRequest(new { message = "Vendor is required" });
+
+        // Update fields
+        existingRequest.RequestNumber = request.RequestNumber;
         existingRequest.Department = request.Department;
         existingRequest.Requester = request.Requester;
         existingRequest.Vendor = request.Vendor;
-        existingRequest.Items = request.Items;
+        existingRequest.Items = request.Items ?? string.Empty;
         existingRequest.TotalAmount = request.TotalAmount;
-        existingRequest.Priority = request.Priority;
         existingRequest.Status = request.Status;
+        existingRequest.Priority = request.Priority;
+        existingRequest.RequestDate = request.RequestDate;
+        existingRequest.ApprovedBy = request.ApprovedBy ?? string.Empty;
 
         await _context.SaveChangesAsync();
+
         return Ok(existingRequest);
     }
 
@@ -144,23 +107,18 @@ public class ProcurementController : ControllerBase
 
         _context.ProcurementRequests.Remove(request);
         await _context.SaveChangesAsync();
+
         return NoContent();
     }
 
-    // POST: api/Procurement/{id}/approve
-    [HttpPost("{id}/approve")]
-    public async Task<IActionResult> Approve(int id, [FromBody] ApproveRequest approveRequest)
+    // GET: api/Procurement/status/{status}
+    [HttpGet("status/{status}")]
+    public async Task<ActionResult<IEnumerable<ProcurementRequest>>> GetByStatus(string status)
     {
-        var request = await _context.ProcurementRequests.FindAsync(id);
-        if (request == null)
-            return NotFound();
-
-        request.Status = "Approved";
-        request.ApprovedDate = DateTime.UtcNow;
-        request.ApprovedBy = approveRequest.ApprovedBy;
-
-        await _context.SaveChangesAsync();
-        return Ok(request);
+        return await _context.ProcurementRequests
+            .Where(p => p.Status == status)
+            .OrderByDescending(p => p.CreatedAt)
+            .ToListAsync();
     }
 
     // GET: api/Procurement/stats
@@ -175,9 +133,4 @@ public class ProcurementController : ControllerBase
 
         return Ok(new { total, pending, approved, rejected, totalAmount });
     }
-}
-
-public class ApproveRequest
-{
-    public string ApprovedBy { get; set; } = string.Empty;
 }

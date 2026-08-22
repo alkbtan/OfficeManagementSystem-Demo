@@ -38,7 +38,8 @@ function Login() {
     setLoading(true);
 
     try {
-      const response = await api.post("/Auth/login", {
+      // ✅ FIX: Use correct endpoint "/Users/login" instead of "/Auth/login"
+      const response = await api.post("/Users/login", {
         email,
         password,
       });
@@ -49,24 +50,28 @@ function Login() {
           "user",
           JSON.stringify(response.data.user)
         );
-        navigate("/");
+        navigate("/dashboard");
       } else {
         setError("Invalid response from server");
       }
     } catch (err: any) {
       console.error("Login error:", err);
+      console.error("Response:", err?.response?.data);
 
+      // ✅ Fallback for demo credentials
       if (email === "admin@example.com" && password === "admin123") {
         localStorage.setItem("token", "fake-jwt-token");
         localStorage.setItem(
           "user",
           JSON.stringify({
-            name: "Admin",
+            id: 1,
+            name: "Admin User",
             email: "admin@example.com",
             role: "Admin",
+            status: "Active",
           })
         );
-        navigate("/");
+        navigate("/dashboard");
       } else {
         setError(
           err.response?.data?.message ||
@@ -89,7 +94,6 @@ function Login() {
         p: 0,
         position: "relative",
         overflow: "hidden",
-        // Applying the ultra-premium 'Plus Jakarta Sans' font globally to the container
         fontFamily: '"Plus Jakarta Sans", sans-serif',
         "& *": {
           fontFamily: '"Plus Jakarta Sans", sans-serif !important',
@@ -196,7 +200,7 @@ function Login() {
               <Typography
                 variant="h5"
                 sx={{
-                  fontWeight: 800, // Bold tech branding weight
+                  fontWeight: 800,
                   color: "#7b1fa2",
                   letterSpacing: "-0.8px",
                   fontSize: { xs: "1.3rem", sm: "1.5rem" },
@@ -209,7 +213,6 @@ function Login() {
                 TestFlyQA
               </Typography>
               
-              {/* Updated Subtitle without the "A" prefix */}
               <Typography
                 variant="caption"
                 sx={{

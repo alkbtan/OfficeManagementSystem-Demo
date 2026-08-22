@@ -6,13 +6,6 @@ import {
   Card,
   CardContent,
   Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Chip,
   Button,
   IconButton,
   CircularProgress,
@@ -24,41 +17,28 @@ import {
   MenuItem,
   Snackbar,
   Alert,
-  InputAdornment,
-  LinearProgress,
+  Chip,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import RefreshIcon from "@mui/icons-material/Refresh";
-import SearchIcon from "@mui/icons-material/Search";
 import AcUnitIcon from "@mui/icons-material/AcUnit";
-import WarningIcon from "@mui/icons-material/Warning";
 import { acService } from "../../services/acService";
-import type { AirConditioner, ACIssue } from "../../services/acService";
+import type { AirConditioner } from "../../services/acService";
 
 function ACs() {
-  const [acs, setAcs] = useState<AirConditioner[]>([]);
-  const [filteredAcs, setFilteredAcs] = useState<AirConditioner[]>([]);
+  const [units, setUnits] = useState<AirConditioner[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
   const [openDialog, setOpenDialog] = useState(false);
-  const [editingAC, setEditingAC] = useState<AirConditioner | null>(null);
-  const [selectedAC, setSelectedAC] = useState<AirConditioner | null>(null);
-  const [openIssueDialog, setOpenIssueDialog] = useState(false);
-  const [stats, setStats] = useState({
-    total: 0,
-    operational: 0,
-    underMaintenance: 0,
-    faulty: 0,
-    totalMaintenanceCost: 0,
-  });
-
+  const [editingUnit, setEditingUnit] = useState<AirConditioner | null>(null);
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
     severity: "success" as "success" | "error",
   });
+
+  const floors = ["7th", "15th", "17th", "18th", "19th"];
 
   const [formData, setFormData] = useState({
     name: "",
@@ -67,30 +47,22 @@ function ACs() {
     model: "",
     capacity: 0,
     installationDate: "",
-    status: "Operational" as AirConditioner["status"],
+    status: "Operational",
+    lastMaintenance: "",
+    totalMaintenanceCost: 0,
+    maintenanceCount: 0,
   });
 
-  const [issueData, setIssueData] = useState({
-    issueType: "Cooling" as ACIssue["issueType"],
-    description: "",
-    cost: 0,
-  });
+  const statuses = ["Operational", "Under Maintenance", "Needs Repair", "Out of Service"];
 
   const loadData = async () => {
     try {
       setLoading(true);
-
-      const [acsData, statsData] = await Promise.all([
-        acService.getAll(),
-        acService.getStats(),
-      ]);
-
-      setAcs(acsData);
-      setFilteredAcs(acsData);
-      setStats(statsData);
+      const data = await acService.getAll();
+      setUnits(data);
     } catch (error) {
-      console.error("Error loading ACs:", error);
-      showSnackbar("Failed to load ACs", "error");
+      console.error("Error loading AC units:", error);
+      showSnackbar("Failed to load AC units", "error");
     } finally {
       setLoading(false);
     }
@@ -100,40 +72,27 @@ function ACs() {
     loadData();
   }, []);
 
-  useEffect(() => {
-    const filtered = acs.filter(
-      (ac) =>
-        ac.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        ac.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        ac.brand.toLowerCase().includes(searchQuery.toLowerCase())
-    );
-
-    setFilteredAcs(filtered);
-  }, [searchQuery, acs]);
-
-  const showSnackbar = (
-    message: string,
-    severity: "success" | "error"
-  ) => {
+  const showSnackbar = (message: string, severity: "success" | "error") => {
     setSnackbar({ open: true, message, severity });
   };
 
-  const handleOpenDialog = (ac?: AirConditioner) => {
-    if (ac) {
-      setEditingAC(ac);
-
+  const handleOpenDialog = (unit?: AirConditioner) => {
+    if (unit) {
+      setEditingUnit(unit);
       setFormData({
-        name: ac.name,
-        location: ac.location,
-        brand: ac.brand,
-        model: ac.model,
-        capacity: ac.capacity,
-        installationDate: ac.installationDate.split("T")[0],
-        status: ac.status,
+        name: unit.name || "",
+        location: unit.location || "",
+        brand: unit.brand || "",
+        model: unit.model || "",
+        capacity: unit.capacity || 0,
+        installationDate: unit.installationDate ? unit.installationDate.split("T")[0] : "",
+        status: unit.status || "Operational",
+        lastMaintenance: unit.lastMaintenance ? unit.lastMaintenance.split("T")[0] : "",
+        totalMaintenanceCost: unit.totalMaintenanceCost || 0,
+        maintenanceCount: unit.maintenanceCount || 0,
       });
     } else {
-      setEditingAC(null);
-
+      setEditingUnit(null);
       setFormData({
         name: "",
         location: "",
@@ -142,103 +101,85 @@ function ACs() {
         capacity: 0,
         installationDate: "",
         status: "Operational",
+        lastMaintenance: "",
+        totalMaintenanceCost: 0,
+        maintenanceCount: 0,
       });
     }
-
     setOpenDialog(true);
   };
 
   const handleCloseDialog = () => {
     setOpenDialog(false);
-    setEditingAC(null);
+    setEditingUnit(null);
   };
 
-  const handleSaveAC = async () => {
+  // ✅ FIXED: handleSaveUnit without sending id in body
+  const handleSaveUnit = async () => {
+    if (!formData.name.trim()) {
+      showSnackbar("Name is required", "error");
+      return;
+    }
+    if (!formData.location) {
+      showSnackbar("Location is required", "error");
+      return;
+    }
+    if (!formData.brand.trim()) {
+      showSnackbar("Brand is required", "error");
+      return;
+    }
+
     try {
       const dataToSend = {
-        ...formData,
-        installationDate: formData.installationDate
-          ? new Date(formData.installationDate).toISOString()
-          : new Date().toISOString(),
+        name: formData.name,
+        location: formData.location,
+        brand: formData.brand,
+        model: formData.model || "",
+        capacity: Number(formData.capacity) || 0,
+        status: formData.status || "Operational",
+        installationDate: formData.installationDate ? new Date(formData.installationDate).toISOString() : null,
+        lastMaintenance: formData.lastMaintenance ? new Date(formData.lastMaintenance).toISOString() : null,
+        totalMaintenanceCost: Number(formData.totalMaintenanceCost) || 0,
+        maintenanceCount: Number(formData.maintenanceCount) || 0,
       };
 
-      if (editingAC) {
-        await acService.update(editingAC.id, dataToSend);
-        showSnackbar("AC updated successfully!", "success");
+      if (editingUnit) {
+        await acService.update(editingUnit.id, dataToSend);
+        showSnackbar("AC unit updated successfully!", "success");
       } else {
         await acService.create(dataToSend);
-        showSnackbar("AC created successfully!", "success");
+        showSnackbar("AC unit created successfully!", "success");
       }
-
       handleCloseDialog();
       loadData();
     } catch (error: any) {
-      console.error("Error saving AC:", error);
-
-      const errorMessage =
-        error.response?.data?.message ||
-        error.response?.data?.title ||
-        "Failed to save AC";
-
+      console.error("Error saving AC unit:", error);
+      console.error("Response:", error?.response?.data);
+      const errorMessage = error?.response?.data?.message || "Failed to save AC unit";
       showSnackbar(errorMessage, "error");
     }
   };
 
-  const handleDeleteAC = async (id: number) => {
-    if (window.confirm("Are you sure you want to delete this AC?")) {
+  const handleDeleteUnit = async (id: number) => {
+    if (window.confirm("Are you sure you want to delete this AC unit?")) {
       try {
         await acService.delete(id);
-        showSnackbar("AC deleted successfully!", "success");
+        showSnackbar("AC unit deleted successfully!", "success");
         loadData();
       } catch (error) {
-        console.error("Error deleting AC:", error);
-        showSnackbar("Failed to delete AC", "error");
+        console.error("Error deleting AC unit:", error);
+        showSnackbar("Failed to delete AC unit", "error");
       }
-    }
-  };
-
-  const handleOpenIssueDialog = (ac: AirConditioner) => {
-    setSelectedAC(ac);
-
-    setIssueData({
-      issueType: "Cooling",
-      description: "",
-      cost: 0,
-    });
-
-    setOpenIssueDialog(true);
-  };
-
-  const handleSaveIssue = async () => {
-    if (!selectedAC) return;
-
-    try {
-      await acService.addIssue(selectedAC.id, {
-        ...issueData,
-        acId: selectedAC.id,
-        reportedDate: new Date().toISOString(),
-        status: "Open",
-      });
-
-      showSnackbar("Issue reported successfully!", "success");
-      setOpenIssueDialog(false);
-      loadData();
-    } catch (error) {
-      console.error("Error reporting issue:", error);
-      showSnackbar("Failed to report issue", "error");
     }
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "Operational":
-        return "success";
-      case "Under Maintenance":
-        return "warning";
-      case "Faulty":
-        return "error";
-      default:
-        return "default";
+      case "Operational": return "success";
+      case "Under Maintenance": return "warning";
+      case "Needs Repair": return "error";
+      case "Out of Service": return "default";
+      default: return "default";
     }
   };
 
@@ -252,534 +193,213 @@ function ACs() {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          mb: 3,
-        }}
-      >
+      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
         <Box>
-          <Typography
-            variant="h4"
-            sx={{ fontWeight: "bold", color: "#1a237e" }}
-          >
+          <Typography variant="h4" sx={{ fontWeight: "bold", color: "#1a237e" }}>
             ❄️ AC Management
           </Typography>
-
           <Typography sx={{ color: "text.secondary" }}>
-            {stats.total} units
+            {units.length} units
           </Typography>
         </Box>
-
         <Box sx={{ display: "flex", gap: 2 }}>
-          <Button
-            variant="outlined"
-            startIcon={<RefreshIcon />}
-            onClick={loadData}
-          >
+          <Button variant="outlined" startIcon={<RefreshIcon />} onClick={loadData}>
             Refresh
           </Button>
-
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => handleOpenDialog()}
-          >
-            Add AC
+          <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpenDialog()}>
+            New AC Unit
           </Button>
         </Box>
       </Box>
 
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ bgcolor: "#f5f5f5" }}>
-            <CardContent>
-              <Typography
-                variant="body2"
-                sx={{ color: "text.secondary" }}
-              >
-                Total ACs
-              </Typography>
-
-              <Typography
-                variant="h4"
-                sx={{ fontWeight: "bold" }}
-              >
-                {stats.total}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ borderLeft: 4, borderColor: "success.main" }}>
-            <CardContent>
-              <Typography
-                variant="body2"
-                sx={{ color: "text.secondary" }}
-              >
-                Operational
-              </Typography>
-
-              <Typography
-                variant="h4"
-                sx={{
-                  fontWeight: "bold",
-                  color: "success.main",
-                }}
-              >
-                {stats.operational}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ borderLeft: 4, borderColor: "warning.main" }}>
-            <CardContent>
-              <Typography
-                variant="body2"
-                sx={{ color: "text.secondary" }}
-              >
-                Under Maintenance
-              </Typography>
-
-              <Typography
-                variant="h4"
-                sx={{
-                  fontWeight: "bold",
-                  color: "warning.main",
-                }}
-              >
-                {stats.underMaintenance}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ borderLeft: 4, borderColor: "error.main" }}>
-            <CardContent>
-              <Typography
-                variant="body2"
-                sx={{ color: "text.secondary" }}
-              >
-                Faulty
-              </Typography>
-
-              <Typography
-                variant="h4"
-                sx={{
-                  fontWeight: "bold",
-                  color: "error.main",
-                }}
-              >
-                {stats.faulty}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-
-      <Paper sx={{ p: 2 }}>
-        <Box
-          sx={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            mb: 2,
-          }}
-        >
-          <TextField
-            placeholder="Search ACs..."
-            size="small"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            sx={{ width: 300 }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon />
-                </InputAdornment>
-              ),
-            }}
-          />
-
-          <Typography
-            variant="body2"
-            sx={{ color: "text.secondary" }}
-          >
-            {filteredAcs.length} units
-          </Typography>
-        </Box>
-
-        <Grid container spacing={2}>
-          {filteredAcs.length === 0 ? (
-            <Grid item xs={12}>
-              <Typography
-                align="center"
-                sx={{ py: 4, color: "text.secondary" }}
-              >
-                No ACs found
-              </Typography>
-            </Grid>
-          ) : (
-            filteredAcs.map((ac) => (
-              <Grid item xs={12} md={6} lg={4} key={ac.id}>
-                <Card
-                  sx={{
-                    borderRadius: 2,
-                    transition: "transform 0.2s",
-                    "&:hover": {
-                      transform: "translateY(-4px)",
-                    },
-                  }}
-                >
-                  <CardContent>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "flex-start",
-                      }}
-                    >
-                      <Box>
-                        <Typography
-                          variant="h6"
-                          sx={{ fontWeight: "bold" }}
-                        >
-                          {ac.name}
-                        </Typography>
-
-                        <Typography
-                          variant="body2"
-                          sx={{ color: "text.secondary" }}
-                        >
-                          {ac.location}
-                        </Typography>
-                      </Box>
-
-                      <Chip
-                        label={ac.status}
-                        size="small"
-                        color={getStatusColor(ac.status) as any}
-                      />
+      <Grid container spacing={2}>
+        {units.length === 0 ? (
+          <Grid item xs={12}>
+            <Paper sx={{ p: 4, textAlign: "center" }}>
+              <Typography sx={{ color: "text.secondary" }}>No AC units found</Typography>
+            </Paper>
+          </Grid>
+        ) : (
+          units.map((unit) => (
+            <Grid item xs={12} sm={6} md={4} key={unit.id}>
+              <Card sx={{ borderRadius: 2, transition: "transform 0.2s", "&:hover": { transform: "translateY(-4px)" } }}>
+                <CardContent>
+                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                    <Box>
+                      <Typography variant="h6" sx={{ fontWeight: "bold" }}>
+                        {unit.name}
+                      </Typography>
+                      <Chip label={unit.status} size="small" color={getStatusColor(unit.status) as any} sx={{ mt: 0.5 }} />
                     </Box>
-
-                    <Box sx={{ mt: 2 }}>
-                      <Typography variant="body2">
-                        Brand: <strong>{ac.brand}</strong>
-                      </Typography>
-
-                      <Typography variant="body2">
-                        Capacity: <strong>{ac.capacity} BTU</strong>
-                      </Typography>
-
-                      <Typography variant="body2">
-                        Warranty:{" "}
-                        <strong>
-                          {new Date(
-                            ac.installationDate
-                          ).toLocaleDateString()}
-                        </strong>
-                      </Typography>
-
-                      <Typography variant="body2">
-                        Cost:{" "}
-                        <strong>
-                          R$ {ac.totalMaintenanceCost.toFixed(2)}
-                        </strong>
-                      </Typography>
-
-                      <Typography variant="body2">
-                        Repairs: <strong>{ac.maintenanceCount}</strong>
-                      </Typography>
-                    </Box>
-
-                    <Box
-                      sx={{
-                        mt: 2,
-                        display: "flex",
-                        justifyContent: "flex-end",
-                        gap: 1,
-                      }}
-                    >
-                      <IconButton
-                        size="small"
-                        color="primary"
-                        onClick={() => handleOpenDialog(ac)}
-                      >
+                    <Box>
+                      <IconButton size="small" color="primary" onClick={() => handleOpenDialog(unit)}>
                         <EditIcon />
                       </IconButton>
-
-                      <IconButton
-                        size="small"
-                        color="error"
-                        onClick={() => handleDeleteAC(ac.id)}
-                      >
+                      <IconButton size="small" color="error" onClick={() => handleDeleteUnit(unit.id)}>
                         <DeleteIcon />
                       </IconButton>
-
-                      <IconButton
-                        size="small"
-                        color="warning"
-                        onClick={() => handleOpenIssueDialog(ac)}
-                      >
-                        <WarningIcon />
-                      </IconButton>
                     </Box>
-                  </CardContent>
-                </Card>
-              </Grid>
-            ))
-          )}
-        </Grid>
-      </Paper>
+                  </Box>
 
-      <Dialog
-        open={openDialog}
-        onClose={handleCloseDialog}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>
-          {editingAC ? "Edit AC" : "Add AC Unit"}
+                  <Box sx={{ mt: 2 }}>
+                    <Typography variant="body2">📍 Location: <strong>{unit.location}</strong></Typography>
+                    <Typography variant="body2">🏷️ Brand: <strong>{unit.brand}</strong> {unit.model ? `(${unit.model})` : ""}</Typography>
+                    <Typography variant="body2">🔥 Capacity: <strong>{unit.capacity} BTU</strong></Typography>
+                    {unit.totalMaintenanceCost > 0 && (
+                      <Typography variant="body2">💰 Maintenance Cost: <strong>R$ {unit.totalMaintenanceCost.toFixed(2)}</strong></Typography>
+                    )}
+                    {unit.maintenanceCount > 0 && (
+                      <Typography variant="body2">🔧 Maintenance Count: <strong>{unit.maintenanceCount}</strong></Typography>
+                    )}
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
+          ))
+        )}
+      </Grid>
+
+      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
+        <DialogTitle sx={{ bgcolor: "#1a237e", color: "white" }}>
+          {editingUnit ? "✏️ Edit AC Unit" : "➕ New AC Unit"}
         </DialogTitle>
-
-        <DialogContent>
-          <Box
-            sx={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 2,
-              mt: 1,
-            }}
-          >
+        <DialogContent sx={{ mt: 2 }}>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
             <TextField
-              label="AC Name"
+              label="Name"
               fullWidth
               required
               value={formData.name}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  name: e.target.value,
-                })
-              }
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
             />
 
             <TextField
-              label="Location"
+              select
+              label="Location (Floor)"
               fullWidth
               required
               value={formData.location}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  location: e.target.value,
-                })
-              }
-            />
-
-            <TextField
-              select
-              label="Status"
-              fullWidth
-              value={formData.status}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  status: e.target.value as AirConditioner["status"],
-                })
-              }
+              onChange={(e) => setFormData({ ...formData, location: e.target.value })}
             >
-              <MenuItem value="Operational">Operational</MenuItem>
-              <MenuItem value="Under Maintenance">
-                Under Maintenance
-              </MenuItem>
-              <MenuItem value="Faulty">Faulty</MenuItem>
+              {floors.map((floor) => (
+                <MenuItem key={floor} value={floor}>{floor}</MenuItem>
+              ))}
             </TextField>
 
-            <TextField
-              label="Brand"
-              fullWidth
-              required
-              value={formData.brand}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  brand: e.target.value,
-                })
-              }
-            />
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Brand"
+                  fullWidth
+                  required
+                  value={formData.brand}
+                  onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Model"
+                  fullWidth
+                  value={formData.model}
+                  onChange={(e) => setFormData({ ...formData, model: e.target.value })}
+                />
+              </Grid>
+            </Grid>
 
-            <TextField
-              label="Model"
-              fullWidth
-              value={formData.model}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  model: e.target.value,
-                })
-              }
-            />
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Capacity (BTU)"
+                  type="number"
+                  fullWidth
+                  required
+                  value={formData.capacity}
+                  onChange={(e) => setFormData({ ...formData, capacity: Number(e.target.value) })}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  select
+                  label="Status"
+                  fullWidth
+                  value={formData.status}
+                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                >
+                  {statuses.map((status) => (
+                    <MenuItem key={status} value={status}>{status}</MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+            </Grid>
 
-            <TextField
-              label="Capacity (BTU)"
-              type="number"
-              fullWidth
-              required
-              value={formData.capacity}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  capacity: Number(e.target.value),
-                })
-              }
-            />
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Installation Date"
+                  type="date"
+                  fullWidth
+                  value={formData.installationDate}
+                  onChange={(e) => setFormData({ ...formData, installationDate: e.target.value })}
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Last Maintenance"
+                  type="date"
+                  fullWidth
+                  value={formData.lastMaintenance}
+                  onChange={(e) => setFormData({ ...formData, lastMaintenance: e.target.value })}
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Grid>
+            </Grid>
 
-            <TextField
-              label="Installation Date"
-              type="date"
-              fullWidth
-              required
-              value={formData.installationDate}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  installationDate: e.target.value,
-                })
-              }
-              InputLabelProps={{ shrink: true }}
-            />
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Total Maintenance Cost (R$)"
+                  type="number"
+                  fullWidth
+                  value={formData.totalMaintenanceCost}
+                  onChange={(e) => setFormData({ ...formData, totalMaintenanceCost: Number(e.target.value) })}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Maintenance Count"
+                  type="number"
+                  fullWidth
+                  value={formData.maintenanceCount}
+                  onChange={(e) => setFormData({ ...formData, maintenanceCount: Number(e.target.value) })}
+                />
+              </Grid>
+            </Grid>
           </Box>
         </DialogContent>
-
-        <DialogActions>
-          <Button onClick={handleCloseDialog}>Cancel</Button>
-
-          <Button
-            variant="contained"
-            onClick={handleSaveAC}
-          >
-            {editingAC ? "Update" : "Create"}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      <Dialog
-        open={openIssueDialog}
-        onClose={() => setOpenIssueDialog(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>
-          Report Issue for {selectedAC?.name}
-        </DialogTitle>
-
-        <DialogContent>
-          <Box
-            sx={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 2,
-              mt: 1,
-            }}
-          >
-            <TextField
-              select
-              label="Issue Type"
-              fullWidth
-              value={issueData.issueType}
-              onChange={(e) =>
-                setIssueData({
-                  ...issueData,
-                  issueType:
-                    e.target.value as ACIssue["issueType"],
-                })
-              }
-            >
-              <MenuItem value="Cooling">Cooling</MenuItem>
-              <MenuItem value="Noise">Noise</MenuItem>
-              <MenuItem value="Water Leak">
-                Water Leak
-              </MenuItem>
-              <MenuItem value="Electrical">
-                Electrical
-              </MenuItem>
-              <MenuItem value="Other">Other</MenuItem>
-            </TextField>
-
-            <TextField
-              label="Description"
-              fullWidth
-              multiline
-              rows={3}
-              value={issueData.description}
-              onChange={(e) =>
-                setIssueData({
-                  ...issueData,
-                  description: e.target.value,
-                })
-              }
-            />
-
-            <TextField
-              label="Estimated Cost ($)"
-              type="number"
-              fullWidth
-              value={issueData.cost}
-              onChange={(e) =>
-                setIssueData({
-                  ...issueData,
-                  cost: Number(e.target.value),
-                })
-              }
-            />
-          </Box>
-        </DialogContent>
-
-        <DialogActions>
-          <Button
-            onClick={() => setOpenIssueDialog(false)}
-          >
+        <DialogActions sx={{ p: 3, gap: 1 }}>
+          <Button onClick={handleCloseDialog} variant="outlined" color="inherit">
             Cancel
           </Button>
-
           <Button
             variant="contained"
-            onClick={handleSaveIssue}
+            onClick={handleSaveUnit}
+            sx={{ bgcolor: "#1a237e" }}
           >
-            Report Issue
+            {editingUnit ? "Update" : "Create"}
           </Button>
         </DialogActions>
       </Dialog>
 
       <Snackbar
         open={snackbar.open}
-        autoHideDuration={3000}
-        onClose={() =>
-          setSnackbar({
-            ...snackbar,
-            open: false,
-          })
-        }
-        anchorOrigin={{
-          vertical: "bottom",
-          horizontal: "right",
-        }}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
       >
         <Alert
           severity={snackbar.severity}
-          onClose={() =>
-            setSnackbar({
-              ...snackbar,
-              open: false,
-            })
-          }
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
         >
           {snackbar.message}
         </Alert>

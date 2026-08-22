@@ -8,68 +8,48 @@ export interface AirConditioner {
   model: string;
   capacity: number;
   installationDate: string;
-  status: "Operational" | "Under Maintenance" | "Faulty";
+  status: string;
   lastMaintenance: string;
   totalMaintenanceCost: number;
   maintenanceCount: number;
-  issues: ACIssue[];
   createdAt: string;
 }
 
-export interface ACIssue {
-  id: number;
-  acId: number;
-  issueType: "Cooling" | "Noise" | "Water Leak" | "Electrical" | "Other";
-  description: string;
-  reportedDate: string;
-  resolvedDate?: string;
-  cost: number;
-  status: "Open" | "In Progress" | "Resolved";
-}
-
 export const acService = {
+  // Get all AC units
   getAll: async (): Promise<AirConditioner[]> => {
-    const response = await api.get("/ACs");
+    const response = await api.get("/AirConditioners");
     return response.data;
   },
 
+  // Get AC unit by ID
   getById: async (id: number): Promise<AirConditioner> => {
-    const response = await api.get(`/ACs/${id}`);
+    const response = await api.get(`/AirConditioners/${id}`);
     return response.data;
   },
 
-  create: async (data: Omit<AirConditioner, "id" | "createdAt" | "issues" | "lastMaintenance" | "totalMaintenanceCost" | "maintenanceCount">): Promise<AirConditioner> => {
-    const response = await api.post("/ACs", data);
+  // Create new AC unit
+  create: async (data: Omit<AirConditioner, "id" | "createdAt">): Promise<AirConditioner> => {
+    const response = await api.post("/AirConditioners", data);
     return response.data;
   },
 
+  // Update AC unit
   update: async (id: number, data: Partial<AirConditioner>): Promise<AirConditioner> => {
-    const response = await api.put(`/ACs/${id}`, data);
+    // ✅ Remove id from data
+    const { id: _, ...cleanData } = data;
+    const response = await api.put(`/AirConditioners/${id}`, cleanData);
     return response.data;
   },
 
+  // Delete AC unit
   delete: async (id: number): Promise<void> => {
-    await api.delete(`/ACs/${id}`);
+    await api.delete(`/AirConditioners/${id}`);
   },
 
-  getStats: async (): Promise<{
-    total: number;
-    operational: number;
-    underMaintenance: number;
-    faulty: number;
-    totalMaintenanceCost: number;
-  }> => {
-    const response = await api.get("/ACs/stats");
-    return response.data;
-  },
-
-  getIssues: async (acId: number): Promise<ACIssue[]> => {
-    const response = await api.get(`/ACs/${acId}/issues`);
-    return response.data;
-  },
-
-  addIssue: async (acId: number, issue: Omit<ACIssue, "id">): Promise<ACIssue> => {
-    const response = await api.post(`/ACs/${acId}/issues`, issue);
+  // Get AC statistics
+  getStats: async (): Promise<{ total: number; operational: number; maintenance: number; totalCost: number }> => {
+    const response = await api.get("/AirConditioners/stats");
     return response.data;
   },
 };

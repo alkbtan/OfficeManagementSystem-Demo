@@ -104,67 +104,39 @@ using (var scope = app.Services.CreateScope())
     context.Database.Migrate();
 }
 
-// Seed Data - Add default users if none exist
+// =========================================================
+// Seed Data - فقط المستخدمين الأساسيين
+// =========================================================
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
-    // Check if Users table has any data
+    // Seed Users فقط
     if (!context.Users.Any())
     {
-        // Add default users
         context.Users.AddRange(
             new User
             {
-                Name = "Admin User",
-                Email = "admin@example.com",
-                Password = "admin123",
-                Role = "Admin",
-                Status = "Active",
-                CreatedAt = DateTime.UtcNow
-            },
-            new User
-            {
-                Name = "Mohammad Alshaar",
-                Email = "mohammad@example.com",
-                Password = "mohammad123",
+                Name = "Kinoura Youssef",
+                Email = "kinour.youssef@testflyqa.com",
+                Password = BCrypt.Net.BCrypt.HashPassword("123456"),
                 Role = "Manager",
                 Status = "Active",
                 CreatedAt = DateTime.UtcNow
             },
             new User
             {
-                Name = "Ahmed Ali",
-                Email = "ahmed@example.com",
-                Password = "ahmed123",
-                Role = "User",
-                Status = "Inactive",
-                CreatedAt = DateTime.UtcNow
-            }
-        );
-
-        context.SaveChanges();
-        Console.WriteLine("Default users seeded successfully!");
-    }
-
-    // Check if Employees table has any data
-    if (!context.Employees.Any())
-    {
-        // Add default employees
-        context.Employees.AddRange(
-            new Employee
-            {
-                FirstName = "Mohammad",
-                LastName = "Alshaar",
-                Email = "mohammad93shaar@yahoo.com",
-                Department = "IT",
+                Name = "Admin User",
+                Email = "admin@example.com",
+                Password = BCrypt.Net.BCrypt.HashPassword("admin123"),
+                Role = "Admin",
                 Status = "Active",
                 CreatedAt = DateTime.UtcNow
             }
         );
 
         context.SaveChanges();
-        Console.WriteLine("Default employees seeded successfully!");
+        Console.WriteLine("✅ Default users seeded successfully!");
     }
 }
 
