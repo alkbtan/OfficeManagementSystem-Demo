@@ -8,6 +8,10 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// ✅ FIX: Disable file watching to avoid inotify limit
+builder.Host.UseContentRoot(Directory.GetCurrentDirectory());
+builder.WebHost.UseSetting("UsePollingFileWatcher", "true");
+
 // Add services to the container.
 
 // Add CORS
