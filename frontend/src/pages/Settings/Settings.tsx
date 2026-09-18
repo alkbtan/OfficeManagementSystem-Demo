@@ -11,7 +11,6 @@ import {
   MenuItem,
   Switch,
   FormControlLabel,
-  Divider,
   Snackbar,
   Alert,
   CircularProgress,
@@ -19,10 +18,11 @@ import {
 import SaveIcon from "@mui/icons-material/Save";
 import RestoreIcon from "@mui/icons-material/Restore";
 import BusinessIcon from "@mui/icons-material/Business";
-import AttachMoneyIcon from "@mui/icons-material/AttachMoney";
 import LanguageIcon from "@mui/icons-material/Language";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import ColorLensIcon from "@mui/icons-material/ColorLens";
+import { useThemeContext } from "../../context/ThemeContext";
+import { useTranslation } from "react-i18next";
 
 interface SettingsData {
   organizationName: string;
@@ -32,9 +32,23 @@ interface SettingsData {
   notificationsEnabled: boolean;
   darkMode: boolean;
   dateFormat: string;
+  language: string;
 }
 
+const defaultSettingsData: SettingsData = {
+  organizationName: "TestFlyQA",
+  currency: "BRL",
+  locale: "pt-BR",
+  theme: "default",
+  notificationsEnabled: true,
+  darkMode: false,
+  dateFormat: "DD/MM/YYYY",
+  language: "en",
+};
+
 function Settings() {
+  const { t, i18n } = useTranslation();
+  const { darkMode, setDarkMode } = useThemeContext();
   const [saving, setSaving] = useState(false);
   const [snackbar, setSnackbar] = useState({
     open: false,
@@ -47,71 +61,24 @@ function Settings() {
     const saved = localStorage.getItem("app_settings");
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        return { ...defaultSettingsData, ...parsed };
       } catch (e) {
         console.error("Error loading settings:", e);
       }
     }
-    return {
-      organizationName: "TestFlyQA",
-      currency: "BRL",
-      locale: "pt-BR",
-      theme: "default",
-      notificationsEnabled: true,
-      darkMode: false,
-      dateFormat: "DD/MM/YYYY",
-    };
+    return defaultSettingsData;
   };
 
   const [settings, setSettings] = useState<SettingsData>(loadSettings);
 
-  // ✅ Apply dark mode immediately when settings change
+  // Sync dark mode with ThemeContext
   useEffect(() => {
-    applyTheme(settings.darkMode);
-  }, [settings.darkMode]);
-
-  const applyTheme = (darkMode: boolean) => {
-    const root = document.documentElement;
-    if (darkMode) {
-      root.style.backgroundColor = "#121212";
-      root.style.color = "#ffffff";
-      document.body.style.backgroundColor = "#121212";
-      document.body.style.color = "#ffffff";
-      
-      // Apply to all MUI components via CSS
-      const style = document.createElement('style');
-      style.id = 'dark-mode-style';
-      style.textContent = `
-        .MuiPaper-root { background-color: #1e1e1e !important; color: #ffffff !important; }
-        .MuiTypography-root { color: #ffffff !important; }
-        .MuiInputLabel-root { color: #aaaaaa !important; }
-        .MuiOutlinedInput-root fieldset { border-color: #444444 !important; }
-        .MuiOutlinedInput-root input { color: #ffffff !important; }
-        .MuiSelect-select { color: #ffffff !important; }
-        .MuiCard-root { background-color: #1e1e1e !important; }
-        .MuiCardContent-root { color: #ffffff !important; }
-        .MuiFormControlLabel-label { color: #ffffff !important; }
-        .MuiChip-root { color: #ffffff !important; }
-        .MuiTable-root { background-color: #1e1e1e !important; }
-        .MuiTableRow-root { background-color: #1e1e1e !important; }
-        .MuiTableCell-root { color: #ffffff !important; border-color: #444444 !important; }
-      `;
-      
-      // Remove existing dark mode style if any
-      const existing = document.getElementById('dark-mode-style');
-      if (existing) existing.remove();
-      document.head.appendChild(style);
-    } else {
-      // Remove dark mode
-      const existing = document.getElementById('dark-mode-style');
-      if (existing) existing.remove();
-      
-      root.style.backgroundColor = "#f5f7fa";
-      root.style.color = "#000000";
-      document.body.style.backgroundColor = "#f5f7fa";
-      document.body.style.color = "#000000";
+    if (settings.darkMode !== darkMode) {
+      setDarkMode(settings.darkMode);
     }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings.darkMode]);
 
   const currencies = [
     { value: "BRL", label: "R$ - Brazilian Real" },
@@ -139,7 +106,15 @@ function Settings() {
     { value: "light", label: "Light" },
   ];
 
-  const showSnackbar = (message: string, severity: "success" | "error" | "info" | "warning") => {
+  const languages = [
+    { value: "en", label: "English" },
+    { value: "pt", label: "Português (Brasil)" },
+  ];
+
+  const showSnackbar = (
+    message: string,
+    severity: "success" | "error" | "info" | "warning"
+  ) => {
     setSnackbar({ open: true, message, severity });
   };
 
@@ -147,35 +122,32 @@ function Settings() {
     setSaving(true);
     try {
       localStorage.setItem("app_settings", JSON.stringify(settings));
-      
-      // ✅ Apply settings immediately
-      applyTheme(settings.darkMode);
-      
+
+      // Apply dark mode via ThemeContext
+      setDarkMode(settings.darkMode);
+
+      // Apply language change
+      if (settings.language && i18n.language !== settings.language) {
+        i18n.changeLanguage(settings.language);
+        localStorage.setItem("language", settings.language);
+      }
+
       setTimeout(() => {
         setSaving(false);
-        showSnackbar("Settings saved successfully! Changes applied.", "success");
+        showSnackbar(t("settings.settingsSaved"), "success");
       }, 500);
     } catch (error) {
       setSaving(false);
-      showSnackbar("Failed to save settings", "error");
+      showSnackbar(t("common.error"), "error");
     }
   };
 
   const handleReset = () => {
-    if (window.confirm("Are you sure you want to reset all settings to defaults?")) {
-      const defaultSettings: SettingsData = {
-        organizationName: "TestFlyQA",
-        currency: "BRL",
-        locale: "pt-BR",
-        theme: "default",
-        notificationsEnabled: true,
-        darkMode: false,
-        dateFormat: "DD/MM/YYYY",
-      };
-      setSettings(defaultSettings);
-      localStorage.setItem("app_settings", JSON.stringify(defaultSettings));
-      applyTheme(false);
-      showSnackbar("Settings reset to defaults!", "info");
+    if (window.confirm(t("common.confirmDelete"))) {
+      setSettings(defaultSettingsData);
+      localStorage.setItem("app_settings", JSON.stringify(defaultSettingsData));
+      setDarkMode(false);
+      showSnackbar(t("settings.settingsSaved"), "info");
     }
   };
 
@@ -184,15 +156,25 @@ function Settings() {
   };
 
   return (
-    <Box sx={{ p: 3, minHeight: "100vh", bgcolor: settings.darkMode ? "#121212" : "#f5f7fa" }}>
+    <Box sx={{ p: 3, minHeight: "100vh" }}>
       {/* Header */}
-      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 4 }}>
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          mb: 4,
+        }}
+      >
         <Box>
-          <Typography variant="h4" sx={{ fontWeight: 700, color: settings.darkMode ? "#ffffff" : "#1a237e" }}>
-            ⚙️ Settings
+          <Typography
+            variant="h4"
+            sx={{ fontWeight: 700, color: "#1a237e" }}
+          >
+            ⚙️ {t("settings.title")}
           </Typography>
-          <Typography sx={{ color: settings.darkMode ? "#aaaaaa" : "#666", mt: 0.5 }}>
-            System configuration and management
+          <Typography sx={{ color: "#666", mt: 0.5 }}>
+            {t("settings.subtitle")}
           </Typography>
         </Box>
         <Box sx={{ display: "flex", gap: 2 }}>
@@ -200,18 +182,15 @@ function Settings() {
             variant="outlined"
             startIcon={<RestoreIcon />}
             onClick={handleReset}
-            sx={{ 
-              borderRadius: 2, 
-              textTransform: "none",
-              color: settings.darkMode ? "#ffffff" : undefined,
-              borderColor: settings.darkMode ? "#666" : undefined,
-            }}
+            sx={{ borderRadius: 2, textTransform: "none" }}
           >
-            Reset to Defaults
+            {t("settings.resetToDefaults")}
           </Button>
           <Button
             variant="contained"
-            startIcon={saving ? <CircularProgress size={20} color="inherit" /> : <SaveIcon />}
+            startIcon={
+              saving ? <CircularProgress size={20} color="inherit" /> : <SaveIcon />
+            }
             onClick={handleSave}
             disabled={saving}
             sx={{
@@ -222,86 +201,76 @@ function Settings() {
               minWidth: 140,
             }}
           >
-            {saving ? "Saving..." : "Save All"}
+            {saving ? t("common.loading") : t("settings.saveAll")}
           </Button>
         </Box>
       </Box>
 
-      {/* Preview Card - Shows current settings in action */}
-      <Card sx={{ borderRadius: 3, p: 3, mb: 3, bgcolor: settings.darkMode ? "#1e1e1e" : "white" }}>
-        <Typography variant="body2" sx={{ color: settings.darkMode ? "#aaa" : "#666" }}>
-          Preview
+      {/* Preview Card */}
+      <Card sx={{ borderRadius: 3, p: 3, mb: 3 }}>
+        <Typography variant="body2" sx={{ color: "#666" }}>
+          {t("settings.preview")}
         </Typography>
         <Grid container spacing={2} sx={{ mt: 0.5 }}>
           <Grid item xs={6}>
-            <Typography variant="body2" sx={{ color: settings.darkMode ? "#aaa" : "#666" }}>
-              Currency Format:
+            <Typography variant="body2" sx={{ color: "#666" }}>
+              {t("settings.currencyFormat")}
             </Typography>
-            <Typography variant="h6" sx={{ color: settings.darkMode ? "#fff" : "#1a237e" }}>
-              {settings.currency === "BRL" ? "R$ 1.250,75" :
-               settings.currency === "USD" ? "$1,250.75" :
-               settings.currency === "EUR" ? "€1,250.75" :
-               "£1,250.75"}
+            <Typography variant="h6" sx={{ color: "#1a237e" }}>
+              {settings.currency === "BRL"
+                ? "R$ 1.250,75"
+                : settings.currency === "USD"
+                ? "$1,250.75"
+                : settings.currency === "EUR"
+                ? "€1,250.75"
+                : "£1,250.75"}
             </Typography>
           </Grid>
           <Grid item xs={6}>
-            <Typography variant="body2" sx={{ color: settings.darkMode ? "#aaa" : "#666" }}>
-              Date Format:
+            <Typography variant="body2" sx={{ color: "#666" }}>
+              {t("settings.dateFormatPreview")}
             </Typography>
-            <Typography variant="h6" sx={{ color: settings.darkMode ? "#fff" : "#1a237e" }}>
-              {settings.dateFormat === "DD/MM/YYYY" ? "22/08/2026" :
-               settings.dateFormat === "MM/DD/YYYY" ? "08/22/2026" :
-               "2026-08-22"}
+            <Typography variant="h6" sx={{ color: "#1a237e" }}>
+              {settings.dateFormat === "DD/MM/YYYY"
+                ? "22/08/2026"
+                : settings.dateFormat === "MM/DD/YYYY"
+                ? "08/22/2026"
+                : "2026-08-22"}
             </Typography>
           </Grid>
         </Grid>
-        <Typography variant="caption" sx={{ color: settings.darkMode ? "#666" : "#999", display: "block", mt: 1 }}>
-          {settings.darkMode ? "🌙 Dark Mode Active" : "☀️ Light Mode Active"}
+        <Typography variant="caption" sx={{ color: "#999", display: "block", mt: 1 }}>
+          {darkMode ? t("settings.darkModeActive") : t("settings.lightModeActive")}
         </Typography>
       </Card>
 
       {/* Organization Settings */}
-      <Paper sx={{ borderRadius: 3, p: 3, mb: 3, bgcolor: settings.darkMode ? "#1e1e1e" : "white" }}>
+      <Paper sx={{ borderRadius: 3, p: 3, mb: 3 }}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 3 }}>
           <BusinessIcon sx={{ color: "#1a237e" }} />
-          <Typography variant="h6" sx={{ fontWeight: 600, color: settings.darkMode ? "#ffffff" : "#1a237e" }}>
-            Organization Settings
+          <Typography variant="h6" sx={{ fontWeight: 600, color: "#1a237e" }}>
+            {t("settings.organizationSettings")}
           </Typography>
         </Box>
 
         <Grid container spacing={3}>
           <Grid item xs={12} md={6}>
             <TextField
-              label="Organization Name"
+              label={t("settings.organizationName")}
               fullWidth
               value={settings.organizationName}
               onChange={(e) => handleChange("organizationName", e.target.value)}
-              sx={{
-                "& .MuiOutlinedInput-root": { borderRadius: 2 },
-                "& .MuiInputLabel-root": { color: settings.darkMode ? "#aaa" : undefined },
-                "& .MuiOutlinedInput-input": { color: settings.darkMode ? "#fff" : undefined },
-                "& .MuiOutlinedInput-root fieldset": { 
-                  borderColor: settings.darkMode ? "#444" : undefined 
-                },
-              }}
+              sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
             />
           </Grid>
           <Grid item xs={12} md={6}>
             <TextField
               select
-              label="Currency"
+              label={t("settings.currency")}
               fullWidth
               value={settings.currency}
               onChange={(e) => handleChange("currency", e.target.value)}
-              sx={{
-                "& .MuiOutlinedInput-root": { borderRadius: 2 },
-                "& .MuiInputLabel-root": { color: settings.darkMode ? "#aaa" : undefined },
-                "& .MuiOutlinedInput-input": { color: settings.darkMode ? "#fff" : undefined },
-                "& .MuiOutlinedInput-root fieldset": { 
-                  borderColor: settings.darkMode ? "#444" : undefined 
-                },
-                "& .MuiSelect-select": { color: settings.darkMode ? "#fff" : undefined },
-              }}
+              sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
             >
               {currencies.map((option) => (
                 <MenuItem key={option.value} value={option.value}>
@@ -314,31 +283,39 @@ function Settings() {
       </Paper>
 
       {/* Localization */}
-      <Paper sx={{ borderRadius: 3, p: 3, mb: 3, bgcolor: settings.darkMode ? "#1e1e1e" : "white" }}>
+      <Paper sx={{ borderRadius: 3, p: 3, mb: 3 }}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 3 }}>
           <LanguageIcon sx={{ color: "#1a237e" }} />
-          <Typography variant="h6" sx={{ fontWeight: 600, color: settings.darkMode ? "#ffffff" : "#1a237e" }}>
-            Localization
+          <Typography variant="h6" sx={{ fontWeight: 600, color: "#1a237e" }}>
+            {t("settings.localization")}
           </Typography>
         </Box>
 
         <Grid container spacing={3}>
-          <Grid item xs={12} md={6}>
+          <Grid item xs={12} md={4}>
             <TextField
               select
-              label="Locale"
+              label={t("common.language")}
+              fullWidth
+              value={settings.language || "en"}
+              onChange={(e) => handleChange("language", e.target.value)}
+              sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
+            >
+              {languages.map((option) => (
+                <MenuItem key={option.value} value={option.value}>
+                  {option.label}
+                </MenuItem>
+              ))}
+            </TextField>
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <TextField
+              select
+              label={t("settings.locale")}
               fullWidth
               value={settings.locale}
               onChange={(e) => handleChange("locale", e.target.value)}
-              sx={{
-                "& .MuiOutlinedInput-root": { borderRadius: 2 },
-                "& .MuiInputLabel-root": { color: settings.darkMode ? "#aaa" : undefined },
-                "& .MuiOutlinedInput-input": { color: settings.darkMode ? "#fff" : undefined },
-                "& .MuiOutlinedInput-root fieldset": { 
-                  borderColor: settings.darkMode ? "#444" : undefined 
-                },
-                "& .MuiSelect-select": { color: settings.darkMode ? "#fff" : undefined },
-              }}
+              sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
             >
               {locales.map((option) => (
                 <MenuItem key={option.value} value={option.value}>
@@ -347,22 +324,14 @@ function Settings() {
               ))}
             </TextField>
           </Grid>
-          <Grid item xs={12} md={6}>
+          <Grid item xs={12} md={4}>
             <TextField
               select
-              label="Date Format"
+              label={t("settings.dateFormat")}
               fullWidth
               value={settings.dateFormat}
               onChange={(e) => handleChange("dateFormat", e.target.value)}
-              sx={{
-                "& .MuiOutlinedInput-root": { borderRadius: 2 },
-                "& .MuiInputLabel-root": { color: settings.darkMode ? "#aaa" : undefined },
-                "& .MuiOutlinedInput-input": { color: settings.darkMode ? "#fff" : undefined },
-                "& .MuiOutlinedInput-root fieldset": { 
-                  borderColor: settings.darkMode ? "#444" : undefined 
-                },
-                "& .MuiSelect-select": { color: settings.darkMode ? "#fff" : undefined },
-              }}
+              sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
             >
               {dateFormats.map((option) => (
                 <MenuItem key={option.value} value={option.value}>
@@ -375,31 +344,23 @@ function Settings() {
       </Paper>
 
       {/* Appearance */}
-      <Paper sx={{ borderRadius: 3, p: 3, mb: 3, bgcolor: settings.darkMode ? "#1e1e1e" : "white" }}>
+      <Paper sx={{ borderRadius: 3, p: 3, mb: 3 }}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 3 }}>
           <ColorLensIcon sx={{ color: "#1a237e" }} />
-          <Typography variant="h6" sx={{ fontWeight: 600, color: settings.darkMode ? "#ffffff" : "#1a237e" }}>
-            Appearance
+          <Typography variant="h6" sx={{ fontWeight: 600, color: "#1a237e" }}>
+            {t("settings.appearance")}
           </Typography>
         </Box>
 
-        <Grid container spacing={3}>
+        <Grid container spacing={3} alignItems="center">
           <Grid item xs={12} md={6}>
             <TextField
               select
-              label="Theme"
+              label={t("settings.theme")}
               fullWidth
               value={settings.theme}
               onChange={(e) => handleChange("theme", e.target.value)}
-              sx={{
-                "& .MuiOutlinedInput-root": { borderRadius: 2 },
-                "& .MuiInputLabel-root": { color: settings.darkMode ? "#aaa" : undefined },
-                "& .MuiOutlinedInput-input": { color: settings.darkMode ? "#fff" : undefined },
-                "& .MuiOutlinedInput-root fieldset": { 
-                  borderColor: settings.darkMode ? "#444" : undefined 
-                },
-                "& .MuiSelect-select": { color: settings.darkMode ? "#fff" : undefined },
-              }}
+              sx={{ "& .MuiOutlinedInput-root": { borderRadius: 2 } }}
             >
               {themes.map((option) => (
                 <MenuItem key={option.value} value={option.value}>
@@ -424,22 +385,18 @@ function Settings() {
                   }}
                 />
               }
-              label={
-                <Typography sx={{ color: settings.darkMode ? "#fff" : "#000" }}>
-                  Dark Mode
-                </Typography>
-              }
+              label={t("settings.darkMode")}
             />
           </Grid>
         </Grid>
       </Paper>
 
       {/* Notifications */}
-      <Paper sx={{ borderRadius: 3, p: 3, bgcolor: settings.darkMode ? "#1e1e1e" : "white" }}>
+      <Paper sx={{ borderRadius: 3, p: 3 }}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 3 }}>
           <NotificationsIcon sx={{ color: "#1a237e" }} />
-          <Typography variant="h6" sx={{ fontWeight: 600, color: settings.darkMode ? "#ffffff" : "#1a237e" }}>
-            Notifications
+          <Typography variant="h6" sx={{ fontWeight: 600, color: "#1a237e" }}>
+            {t("settings.notifications")}
           </Typography>
         </Box>
 
@@ -447,7 +404,9 @@ function Settings() {
           control={
             <Switch
               checked={settings.notificationsEnabled}
-              onChange={(e) => handleChange("notificationsEnabled", e.target.checked)}
+              onChange={(e) =>
+                handleChange("notificationsEnabled", e.target.checked)
+              }
               sx={{
                 "& .MuiSwitch-switchBase.Mui-checked": {
                   color: "#7b1fa2",
@@ -458,11 +417,7 @@ function Settings() {
               }}
             />
           }
-          label={
-            <Typography sx={{ color: settings.darkMode ? "#fff" : "#000" }}>
-              Enable Notifications
-            </Typography>
-          }
+          label={t("settings.enableNotifications")}
         />
       </Paper>
 

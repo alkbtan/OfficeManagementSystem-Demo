@@ -6,40 +6,94 @@ public class ProcurementRequest
 {
     public int Id { get; set; }
 
-    // ✅ Remove [Required] from RequestNumber - it's auto-generated
     [MaxLength(50)]
     public string RequestNumber { get; set; } = string.Empty;
+
+    // 1. Request Information
+    [MaxLength(200)]
+    public string Item { get; set; } = string.Empty;
+
+    [MaxLength(100)]
+    public string ItemId { get; set; } = string.Empty;
+
+    [Required]
+    [MaxLength(100)]
+    public string RequesterName { get; set; } = string.Empty;
 
     [Required]
     [MaxLength(100)]
     public string Department { get; set; } = string.Empty;
 
-    [Required]
-    [MaxLength(100)]
-    public string Requester { get; set; } = string.Empty;
-
-    [Required]
-    [MaxLength(100)]
-    public string Vendor { get; set; } = string.Empty;
-
-    [Required]
-    [MaxLength(500)]
-    public string Items { get; set; } = string.Empty;
-
-    [Required]
-    public decimal TotalAmount { get; set; }
-
     [MaxLength(20)]
-    public string Status { get; set; } = "Pending";
+    public string Floor { get; set; } = string.Empty;
 
+    [MaxLength(100)]
+    public string Project { get; set; } = string.Empty;
+
+    [MaxLength(200)]
+    public string Responsible { get; set; } = string.Empty;
+
+    [MaxLength(1000)]
+    public string BriefDescription { get; set; } = string.Empty;
+
+    // 2. Purchase Information
+    [MaxLength(200)]
+    public string Supplier { get; set; } = string.Empty;
+
+    [MaxLength(500)]
+    public string ProductLink { get; set; } = string.Empty;
+
+    public decimal UnitPrice { get; set; }
+    public int Quantity { get; set; } = 1;
+    public decimal ShippingCost { get; set; }
+    public decimal Total { get; set; }
+
+    [MaxLength(50)]
+    public string Classification { get; set; } = "One-Time Payment";
+
+    [MaxLength(50)]
+    public string PaymentMethod { get; set; } = "PIX";
+
+    // 3. Request Control
     [MaxLength(20)]
     public string Priority { get; set; } = "Medium";
 
-    public DateTime RequestDate { get; set; } = DateTime.UtcNow;
+    [MaxLength(50)]
+    public string Status { get; set; } = "Collecting Information";
 
-    public DateTime? ApprovedDate { get; set; }
+    public DateTime FormDate { get; set; } = DateTime.UtcNow;
+    public DateTime? PurchaseDeadline { get; set; }
 
-    public string? ApprovedBy { get; set; }
+    // 4. Approval
+    [MaxLength(100)]
+    public string ApprovedBy { get; set; } = string.Empty;
+
+    public DateTime? ApprovalDate { get; set; }
+
+    [MaxLength(500)]
+    public string ApprovalDocumentPath { get; set; } = string.Empty;
+
+    [MaxLength(500)]
+    public string TicketLink { get; set; } = string.Empty;
+
+    // 5. Payment
+    [MaxLength(100)]
+    public string InvoiceNumber { get; set; } = string.Empty;
+
+    public DateTime? BoletoDueDate { get; set; }
+    public DateTime? PaymentDate { get; set; }
+
+    [MaxLength(500)]
+    public string BoletoFilePath { get; set; } = string.Empty;
+
+    [MaxLength(500)]
+    public string PaymentReceiptPath { get; set; } = string.Empty;
+
+    // 6. Delivery
+    public DateTime? ExpectedDeliveryDate { get; set; }
+
+    [MaxLength(500)]
+    public string PurchaseDataFilePath { get; set; } = string.Empty;
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

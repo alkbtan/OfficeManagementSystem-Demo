@@ -23,10 +23,12 @@ import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import RefreshIcon from "@mui/icons-material/Refresh";
+import { useTranslation } from "react-i18next";
 import { getEmployees, createEmployee, updateEmployee, deleteEmployee } from "../../services/employeeService";
 import type { Employee } from "../../services/employeeService";
 
 function Employees() {
+  const { t } = useTranslation();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [openDialog, setOpenDialog] = useState(false);
@@ -59,7 +61,7 @@ function Employees() {
       setEmployees(data);
     } catch (error) {
       console.error("Error loading employees:", error);
-      showSnackbar("Failed to load employees", "error");
+      showSnackbar(t("common.error"), "error");
     } finally {
       setLoading(false);
     }
@@ -107,19 +109,19 @@ function Employees() {
 
   const handleSaveEmployee = async () => {
     if (!formData.firstName.trim()) {
-      showSnackbar("First Name is required", "error");
+      showSnackbar(`${t("employees.firstName")} ${t("common.required")}`, "error");
       return;
     }
     if (!formData.lastName.trim()) {
-      showSnackbar("Last Name is required", "error");
+      showSnackbar(`${t("employees.lastName")} ${t("common.required")}`, "error");
       return;
     }
     if (!formData.email.trim()) {
-      showSnackbar("Email is required", "error");
+      showSnackbar(`${t("employees.email")} ${t("common.required")}`, "error");
       return;
     }
     if (!formData.department) {
-      showSnackbar("Department is required", "error");
+      showSnackbar(`${t("employees.department")} ${t("common.required")}`, "error");
       return;
     }
 
@@ -136,29 +138,29 @@ function Employees() {
 
       if (editingEmployee) {
         await updateEmployee(editingEmployee.id, dataToSend);
-        showSnackbar("Employee updated successfully!", "success");
+        showSnackbar(t("common.success"), "success");
       } else {
         await createEmployee(dataToSend);
-        showSnackbar("Employee created successfully!", "success");
+        showSnackbar(t("common.success"), "success");
       }
       handleCloseDialog();
       loadData();
     } catch (error: any) {
       console.error("Error saving employee:", error);
-      const errorMessage = error?.response?.data?.message || "Failed to save employee";
+      const errorMessage = error?.response?.data?.message || t("common.error");
       showSnackbar(errorMessage, "error");
     }
   };
 
   const handleDeleteEmployee = async (id: number) => {
-    if (window.confirm("Are you sure you want to delete this employee?")) {
+    if (window.confirm(t("common.confirmDelete"))) {
       try {
         await deleteEmployee(id);
-        showSnackbar("Employee deleted successfully!", "success");
+        showSnackbar(t("common.success"), "success");
         loadData();
       } catch (error) {
         console.error("Error deleting employee:", error);
-        showSnackbar("Failed to delete employee", "error");
+        showSnackbar(t("common.error"), "error");
       }
     }
   };
@@ -186,18 +188,18 @@ function Employees() {
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
         <Box>
           <Typography variant="h4" sx={{ fontWeight: "bold", color: "#1a237e" }}>
-            👥 Employees
+            👥 {t("employees.title")}
           </Typography>
           <Typography sx={{ color: "text.secondary" }}>
-            {employees.length} employees
+            {employees.length} {t("employees.subtitle")}
           </Typography>
         </Box>
         <Box sx={{ display: "flex", gap: 2 }}>
           <Button variant="outlined" startIcon={<RefreshIcon />} onClick={loadData}>
-            Refresh
+            {t("common.refresh")}
           </Button>
           <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpenDialog()}>
-            Add Employee
+            {t("employees.addEmployee")}
           </Button>
         </Box>
       </Box>
@@ -206,7 +208,7 @@ function Employees() {
         {employees.length === 0 ? (
           <Grid item xs={12}>
             <Paper sx={{ p: 4, textAlign: "center" }}>
-              <Typography sx={{ color: "text.secondary" }}>No employees found</Typography>
+              <Typography sx={{ color: "text.secondary" }}>{t("common.noItems")}</Typography>
             </Paper>
           </Grid>
         ) : (
@@ -235,10 +237,10 @@ function Employees() {
                   <Box sx={{ mt: 2 }}>
                     <Typography variant="body2">📧 {emp.email}</Typography>
                     {emp.location && (
-                      <Typography variant="body2">📍 Location: <strong>{emp.location}</strong></Typography>
+                      <Typography variant="body2">📍 {t("common.location")}: <strong>{emp.location}</strong></Typography>
                     )}
                     {emp.birthday && (
-                      <Typography variant="body2">🎂 Birthday: <strong>{new Date(emp.birthday).toLocaleDateString()}</strong></Typography>
+                      <Typography variant="body2">🎂 {t("employees.birthday")}: <strong>{new Date(emp.birthday).toLocaleDateString()}</strong></Typography>
                     )}
                   </Box>
                 </CardContent>
@@ -250,14 +252,14 @@ function Employees() {
 
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ bgcolor: "#1a237e", color: "white" }}>
-          {editingEmployee ? "✏️ Edit Employee" : "➕ Add Employee"}
+          {editingEmployee ? `✏️ ${t("employees.editEmployee")}` : `➕ ${t("employees.addEmployee")}`}
         </DialogTitle>
         <DialogContent sx={{ mt: 2 }}>
           <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
             <Grid container spacing={2}>
               <Grid item xs={12} sm={6}>
                 <TextField
-                  label="First Name"
+                  label={t("employees.firstName")}
                   fullWidth
                   required
                   value={formData.firstName}
@@ -266,7 +268,7 @@ function Employees() {
               </Grid>
               <Grid item xs={12} sm={6}>
                 <TextField
-                  label="Last Name"
+                  label={t("employees.lastName")}
                   fullWidth
                   required
                   value={formData.lastName}
@@ -276,7 +278,7 @@ function Employees() {
             </Grid>
 
             <TextField
-              label="Email"
+              label={t("employees.email")}
               fullWidth
               required
               type="email"
@@ -286,7 +288,7 @@ function Employees() {
 
             <TextField
               select
-              label="Department"
+              label={t("employees.department")}
               fullWidth
               required
               value={formData.department}
@@ -299,7 +301,7 @@ function Employees() {
 
             <TextField
               select
-              label="Location (Floor)"
+              label={t("employees.locationFloor")}
               fullWidth
               value={formData.location}
               onChange={(e) => setFormData({ ...formData, location: e.target.value })}
@@ -310,7 +312,7 @@ function Employees() {
             </TextField>
 
             <TextField
-              label="Birthday"
+              label={t("employees.birthday")}
               type="date"
               fullWidth
               value={formData.birthday}
@@ -320,21 +322,28 @@ function Employees() {
 
             <TextField
               select
-              label="Status"
+              label={t("employees.status")}
               fullWidth
               value={formData.status}
               onChange={(e) => setFormData({ ...formData, status: e.target.value })}
             >
               {statuses.map((status) => (
-                <MenuItem key={status} value={status}>{status}</MenuItem>
+                <MenuItem key={status} value={status}>
+                  {status === "Active" && t("employees.active")}
+                  {status === "Inactive" && t("employees.inactive")}
+                  {status === "On Leave" && t("employees.onLeave")}
+                  {status === "Terminated" && t("employees.terminated")}
+                </MenuItem>
               ))}
             </TextField>
           </Box>
         </DialogContent>
         <DialogActions sx={{ p: 3, gap: 1 }}>
-          <Button onClick={handleCloseDialog} variant="outlined" color="inherit">Cancel</Button>
+          <Button onClick={handleCloseDialog} variant="outlined" color="inherit">
+            {t("common.cancel")}
+          </Button>
           <Button variant="contained" onClick={handleSaveEmployee} sx={{ bgcolor: "#1a237e" }}>
-            {editingEmployee ? "Update" : "Add"}
+            {editingEmployee ? t("common.update") : t("common.add")}
           </Button>
         </DialogActions>
       </Dialog>

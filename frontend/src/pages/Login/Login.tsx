@@ -19,7 +19,7 @@ import {
   Visibility,
   VisibilityOff,
 } from "@mui/icons-material";
-import api from "../../api/axios";
+import { authService } from "../../api/auth";
 
 // Importing the logo directly using your preferred local path and .webp extension
 import Logo from "../../assets/images/testfly-logo.webp"; 
@@ -38,27 +38,19 @@ function Login() {
     setLoading(true);
 
     try {
-      // ✅ FIX: Use correct endpoint "/Users/login" instead of "/Auth/login"
-      const response = await api.post("/Users/login", {
-        email,
-        password,
-      });
+      const response = await authService.login({ email, password });
 
-      if (response.data.token) {
-        localStorage.setItem("token", response.data.token);
-        localStorage.setItem(
-          "user",
-          JSON.stringify(response.data.user)
-        );
+      if (response.token) {
+        localStorage.setItem("token", response.token);
+        localStorage.setItem("user", JSON.stringify(response.user));
         navigate("/dashboard");
       } else {
         setError("Invalid response from server");
       }
     } catch (err: any) {
       console.error("Login error:", err);
-      console.error("Response:", err?.response?.data);
 
-      // ✅ Fallback for demo credentials
+      // Fallback for demo credentials
       if (email === "admin@example.com" && password === "admin123") {
         localStorage.setItem("token", "fake-jwt-token");
         localStorage.setItem(
@@ -73,10 +65,7 @@ function Login() {
         );
         navigate("/dashboard");
       } else {
-        setError(
-          err.response?.data?.message ||
-            "Invalid email or password"
-        );
+        setError(err.response?.data?.message || "Invalid email or password");
       }
     } finally {
       setLoading(false);

@@ -27,6 +27,7 @@ public class ApplicationDbContext : DbContext
     public DbSet<Event> Events { get; set; }
     public DbSet<Sport> Sports { get; set; }
     public DbSet<Document> Documents { get; set; }
+    public DbSet<TodoTask> Tasks { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -179,15 +180,31 @@ public class ApplicationDbContext : DbContext
         modelBuilder.Entity<ProcurementRequest>(entity =>
         {
             entity.HasKey(e => e.Id);
-            entity.Property(e => e.RequestNumber).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.RequestNumber).HasMaxLength(50);
+            entity.Property(e => e.Item).HasMaxLength(200);
+            entity.Property(e => e.ItemId).HasMaxLength(100);
+            entity.Property(e => e.RequesterName).IsRequired().HasMaxLength(100);
             entity.Property(e => e.Department).IsRequired().HasMaxLength(100);
-            entity.Property(e => e.Requester).IsRequired().HasMaxLength(100);
-            entity.Property(e => e.Vendor).IsRequired().HasMaxLength(100);
-            entity.Property(e => e.Items).HasMaxLength(500);
-            entity.Property(e => e.Status).HasMaxLength(20).HasDefaultValue("Pending");
+            entity.Property(e => e.Floor).HasMaxLength(20);
+            entity.Property(e => e.Project).HasMaxLength(100);
+            entity.Property(e => e.Responsible).HasMaxLength(200);
+            entity.Property(e => e.BriefDescription).HasMaxLength(1000);
+            entity.Property(e => e.Supplier).HasMaxLength(200);
+            entity.Property(e => e.ProductLink).HasMaxLength(500);
+            entity.Property(e => e.UnitPrice).HasPrecision(18, 2);
+            entity.Property(e => e.ShippingCost).HasPrecision(18, 2);
+            entity.Property(e => e.Total).HasPrecision(18, 2);
+            entity.Property(e => e.Classification).HasMaxLength(50);
+            entity.Property(e => e.PaymentMethod).HasMaxLength(50);
             entity.Property(e => e.Priority).HasMaxLength(20).HasDefaultValue("Medium");
+            entity.Property(e => e.Status).HasMaxLength(50).HasDefaultValue("Collecting Information");
             entity.Property(e => e.ApprovedBy).HasMaxLength(100);
-            entity.Property(e => e.TotalAmount).HasPrecision(18, 2);
+            entity.Property(e => e.ApprovalDocumentPath).HasMaxLength(500);
+            entity.Property(e => e.TicketLink).HasMaxLength(500);
+            entity.Property(e => e.InvoiceNumber).HasMaxLength(100);
+            entity.Property(e => e.BoletoFilePath).HasMaxLength(500);
+            entity.Property(e => e.PaymentReceiptPath).HasMaxLength(500);
+            entity.Property(e => e.PurchaseDataFilePath).HasMaxLength(500);
         });
 
         // =========================================================
@@ -246,6 +263,19 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Status).HasMaxLength(50);
             entity.Property(e => e.Description).HasMaxLength(500);
             entity.Property(e => e.FilePath).HasMaxLength(255);
+        });
+
+        // =========================================================
+        // TodoTask Configuration
+        // =========================================================
+        modelBuilder.Entity<TodoTask>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Title).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.Description).HasMaxLength(1000);
+            entity.Property(e => e.Priority).HasMaxLength(20).HasDefaultValue("Medium");
+            entity.Property(e => e.Category).HasMaxLength(20).HasDefaultValue("Work");
+            entity.Property(e => e.Completed).HasDefaultValue(false);
         });
     }
 }

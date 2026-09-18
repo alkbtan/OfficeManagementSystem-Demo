@@ -1,4 +1,4 @@
-import api from "../api/axios";
+﻿import api from "../api/axios";
 
 export interface Budget {
   id: number;
@@ -41,5 +41,9 @@ export const budgetService = {
   update: async (id: number, data: Partial<Budget>): Promise<Budget> => {
     const response = await api.put(`/Budget/${id}`, data);
     return response.data;
+  },
+
+  delete: async (id: number): Promise<void> => {
+    await api.delete(`/Budget/${id}`);
   },
 };

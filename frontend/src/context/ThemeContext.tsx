@@ -21,11 +21,11 @@ export const useThemeContext = () => {
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [primaryColor, setPrimaryColor] = useState(() => {
-    const saved = localStorage.getItem("appSettings");
+    const saved = localStorage.getItem("app_settings");
     if (saved) {
       try {
         const settings = JSON.parse(saved);
-        return settings.appearance?.primaryColor || "#1976d2";
+        return settings.primaryColor || "#1976d2";
       } catch {
         return "#1976d2";
       }
@@ -34,11 +34,11 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   });
 
   const [darkMode, setDarkMode] = useState(() => {
-    const saved = localStorage.getItem("appSettings");
+    const saved = localStorage.getItem("app_settings");
     if (saved) {
       try {
         const settings = JSON.parse(saved);
-        return settings.appearance?.darkMode || false;
+        return settings.darkMode || false;
       } catch {
         return false;
       }
@@ -48,24 +48,40 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const theme = createAppTheme(primaryColor);
 
-  // ✅ Save to localStorage when changed
+  // Save to localStorage whenever they change
   useEffect(() => {
-    const saved = localStorage.getItem("appSettings");
-    let settings = saved ? JSON.parse(saved) : { general: {}, appearance: {}, security: {}, notifications: {} };
-    settings.appearance = {
-      ...settings.appearance,
-      primaryColor,
-      darkMode,
-    };
-    localStorage.setItem("appSettings", JSON.stringify(settings));
+    const saved = localStorage.getItem("app_settings");
+    let settings = saved ? JSON.parse(saved) : {};
+    settings.darkMode = darkMode;
+    settings.primaryColor = primaryColor;
+    localStorage.setItem("app_settings", JSON.stringify(settings));
 
-    // Apply dark mode to HTML
+    // Apply dark mode class to HTML
     if (darkMode) {
       document.documentElement.classList.add("dark");
     } else {
       document.documentElement.classList.remove("dark");
     }
   }, [primaryColor, darkMode]);
+
+  // Listen to external changes (e.g. from Settings page)
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "app_settings" && e.newValue) {
+        try {
+          const settings = JSON.parse(e.newValue);
+          if (typeof settings.darkMode === "boolean" && settings.darkMode !== darkMode) {
+            setDarkMode(settings.darkMode);
+          }
+        } catch {
+          // ignore
+        }
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, [darkMode]);
 
   return (
     <ThemeContext.Provider value={{ primaryColor, setPrimaryColor, darkMode, setDarkMode }}>

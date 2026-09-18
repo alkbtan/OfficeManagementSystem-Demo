@@ -24,10 +24,12 @@ import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import ComputerIcon from "@mui/icons-material/Computer";
+import { useTranslation } from "react-i18next";
 import { assetService } from "../../services/assetService";
 import type { Asset } from "../../services/assetService";
 
 function Assets() {
+  const { t } = useTranslation();
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(true);
   const [openDialog, setOpenDialog] = useState(false);
@@ -38,7 +40,7 @@ function Assets() {
     severity: "success" as "success" | "error",
   });
 
-  // ✅ FIXED: Asset Types as requested
+  // Asset Types
   const assetTypes = [
     "Desk",
     "Chair",
@@ -48,10 +50,10 @@ function Assets() {
     "Meeting Table",
     "Coffee Machine",
     "Water Filter",
-    "Other Furniture"
+    "Other Furniture",
   ];
 
-  // ✅ FIXED: Floors as dropdown list
+  // Floors
   const floors = ["7th", "15th", "17th", "18th", "19th"];
 
   const [formData, setFormData] = useState({
@@ -73,7 +75,7 @@ function Assets() {
       setAssets(data);
     } catch (error) {
       console.error("Error loading assets:", error);
-      showSnackbar("Failed to load assets", "error");
+      showSnackbar(t("common.error"), "error");
     } finally {
       setLoading(false);
     }
@@ -121,15 +123,15 @@ function Assets() {
 
   const handleSaveAsset = async () => {
     if (!formData.name.trim()) {
-      showSnackbar("Name is required", "error");
+      showSnackbar(`${t("common.name")} ${t("common.required")}`, "error");
       return;
     }
     if (!formData.type) {
-      showSnackbar("Type is required", "error");
+      showSnackbar(`${t("common.type")} ${t("common.required")}`, "error");
       return;
     }
     if (!formData.location) {
-      showSnackbar("Location is required", "error");
+      showSnackbar(`${t("common.location")} ${t("common.required")}`, "error");
       return;
     }
 
@@ -146,30 +148,30 @@ function Assets() {
 
       if (editingAsset) {
         await assetService.update(editingAsset.id, dataToSend);
-        showSnackbar("Asset updated successfully!", "success");
+        showSnackbar(t("common.success"), "success");
       } else {
         await assetService.create(dataToSend);
-        showSnackbar("Asset created successfully!", "success");
+        showSnackbar(t("common.success"), "success");
       }
       handleCloseDialog();
       loadData();
     } catch (error: any) {
       console.error("Error saving asset:", error);
       console.error("Response:", error?.response?.data);
-      const errorMessage = error?.response?.data?.message || "Failed to save asset";
+      const errorMessage = error?.response?.data?.message || t("common.error");
       showSnackbar(errorMessage, "error");
     }
   };
 
   const handleDeleteAsset = async (id: number) => {
-    if (window.confirm("Are you sure you want to delete this asset?")) {
+    if (window.confirm(t("common.confirmDelete"))) {
       try {
         await assetService.delete(id);
-        showSnackbar("Asset deleted successfully!", "success");
+        showSnackbar(t("common.success"), "success");
         loadData();
       } catch (error) {
         console.error("Error deleting asset:", error);
-        showSnackbar("Failed to delete asset", "error");
+        showSnackbar(t("common.error"), "error");
       }
     }
   };
@@ -199,18 +201,18 @@ function Assets() {
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
         <Box>
           <Typography variant="h4" sx={{ fontWeight: "bold", color: "#1a237e" }}>
-            💻 Assets
+            💻 {t("assets.title")}
           </Typography>
           <Typography sx={{ color: "text.secondary" }}>
-            {assets.length} assets
+            {assets.length} {t("assets.subtitle")}
           </Typography>
         </Box>
         <Box sx={{ display: "flex", gap: 2 }}>
           <Button variant="outlined" startIcon={<RefreshIcon />} onClick={loadData}>
-            Refresh
+            {t("common.refresh")}
           </Button>
           <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpenDialog()}>
-            New Asset
+            {t("assets.newAsset")}
           </Button>
         </Box>
       </Box>
@@ -220,7 +222,7 @@ function Assets() {
         {assets.length === 0 ? (
           <Grid item xs={12}>
             <Paper sx={{ p: 4, textAlign: "center" }}>
-              <Typography sx={{ color: "text.secondary" }}>No assets found</Typography>
+              <Typography sx={{ color: "text.secondary" }}>{t("common.noItems")}</Typography>
             </Paper>
           </Grid>
         ) : (
@@ -265,20 +267,20 @@ function Assets() {
                   <Box sx={{ mt: 2 }}>
                     {asset.model && (
                       <Typography variant="body2">
-                        📟 Model: <strong>{asset.model}</strong>
+                        📟 {t("assets.model")}: <strong>{asset.model}</strong>
                       </Typography>
                     )}
                     {asset.serialNumber && (
                       <Typography variant="body2">
-                        🔢 Serial: <strong>{asset.serialNumber}</strong>
+                        🔢 {t("assets.serialNumber")}: <strong>{asset.serialNumber}</strong>
                       </Typography>
                     )}
                     <Typography variant="body2">
-                      📍 Location: <strong>{asset.location}</strong>
+                      📍 {t("common.location")}: <strong>{asset.location}</strong>
                     </Typography>
                     {asset.assignedTo && (
                       <Typography variant="body2">
-                        👤 Assigned To: <strong>{asset.assignedTo}</strong>
+                        👤 {t("assets.assignedTo")}: <strong>{asset.assignedTo}</strong>
                       </Typography>
                     )}
                   </Box>
@@ -292,12 +294,12 @@ function Assets() {
       {/* Add/Edit Dialog */}
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ bgcolor: "#1a237e", color: "white" }}>
-          {editingAsset ? "✏️ Edit Asset" : "➕ New Asset"}
+          {editingAsset ? `✏️ ${t("assets.editAsset")}` : `➕ ${t("assets.newAsset")}`}
         </DialogTitle>
         <DialogContent sx={{ mt: 2 }}>
           <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
             <TextField
-              label="Name"
+              label={t("common.name")}
               fullWidth
               required
               value={formData.name}
@@ -306,7 +308,7 @@ function Assets() {
 
             <TextField
               select
-              label="Type"
+              label={t("common.type")}
               fullWidth
               required
               value={formData.type}
@@ -318,23 +320,23 @@ function Assets() {
             </TextField>
 
             <TextField
-              label="Model"
+              label={t("assets.model")}
               fullWidth
               value={formData.model}
               onChange={(e) => setFormData({ ...formData, model: e.target.value })}
             />
 
             <TextField
-              label="Serial Number (Optional)"
+              label={t("assets.serialNumber")}
               fullWidth
-              placeholder="Leave empty if not applicable"
+              placeholder={t("assets.serialNumberPlaceholder")}
               value={formData.serialNumber}
               onChange={(e) => setFormData({ ...formData, serialNumber: e.target.value })}
             />
 
             <TextField
               select
-              label="Status"
+              label={t("common.status")}
               fullWidth
               value={formData.status}
               onChange={(e) => setFormData({ ...formData, status: e.target.value })}
@@ -346,7 +348,7 @@ function Assets() {
 
             <TextField
               select
-              label="Location (Floor)"
+              label={t("employees.locationFloor")}
               fullWidth
               required
               value={formData.location}
@@ -358,7 +360,7 @@ function Assets() {
             </TextField>
 
             <TextField
-              label="Assigned To"
+              label={t("assets.assignedTo")}
               fullWidth
               value={formData.assignedTo}
               onChange={(e) => setFormData({ ...formData, assignedTo: e.target.value })}
@@ -367,14 +369,14 @@ function Assets() {
         </DialogContent>
         <DialogActions sx={{ p: 3, gap: 1 }}>
           <Button onClick={handleCloseDialog} variant="outlined" color="inherit">
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button
             variant="contained"
             onClick={handleSaveAsset}
             sx={{ bgcolor: "#1a237e" }}
           >
-            {editingAsset ? "Update" : "Create"}
+            {editingAsset ? t("common.update") : t("common.create")}
           </Button>
         </DialogActions>
       </Dialog>

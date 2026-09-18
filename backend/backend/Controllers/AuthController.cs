@@ -26,52 +26,42 @@ public class AuthController : ControllerBase
         var user = await _context.Users
             .FirstOrDefaultAsync(u => u.Email == request.Email);
 
-        // Check if user exists and password matches
-        if (user != null && user.Password == request.Password)
-        {
-            var token = GenerateJwtToken(user.Email);
-            return Ok(new
-            {
-                token,
-                user = new
-                {
-                    id = user.Id,
-                    name = user.Name,
-                    email = user.Email,
-                    role = user.Role
-                }
-            });
-        }
+        if (user == null)
+            return Unauthorized(new { message = "Invalid email or password" });
 
-        // Fallback: Check hardcoded admin
-        if (request.Email == "admin@example.com" && request.Password == "admin123")
-        {
-            var token = GenerateJwtToken(request.Email);
-            return Ok(new
-            {
-                token,
-                user = new
-                {
-                    id = 1,
-                    name = "Admin",
-                    email = request.Email,
-                    role = "Admin"
-                }
-            });
-        }
+        if (user.Status != "Active")
+            return Unauthorized(new { message = "Account is inactive" });
 
-        return Unauthorized(new { message = "Invalid email or password" });
+        // FIX: Use BCrypt.Verify instead of plaintext comparison
+        if (!BCrypt.Net.BCrypt.Verify(request.Password, user.Password))
+            return Unauthorized(new { message = "Invalid email or password" });
+
+        var token = GenerateJwtToken(user.Email, user.Role);
+
+        return Ok(new
+        {
+            token,
+            user = new
+            {
+                id = user.Id,
+                name = user.Name,
+                email = user.Email,
+                role = user.Role
+            }
+        });
     }
 
-    private string GenerateJwtToken(string email)
+    private string GenerateJwtToken(string email, string role)
     {
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("YourSuperSecretKeyHere1234567890!@#$%"));
+        var key = new SymmetricSecurityKey(
+            Encoding.UTF8.GetBytes("YourSuperSecretKeyHere1234567890!@#$%"));
+
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
         var claims = new[]
         {
             new Claim(ClaimTypes.Email, email),
-            new Claim(ClaimTypes.Role, "Admin")
+            new Claim(ClaimTypes.Role, role)
         };
 
         var token = new JwtSecurityToken(

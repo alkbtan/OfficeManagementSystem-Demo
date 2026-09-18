@@ -1,65 +1,32 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import {
-  Box,
-  Typography,
-  Grid,
-  Card,
-  CardContent,
-  Paper,
-  Button,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  CircularProgress,
-  Chip,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Checkbox,
-  ListItemText,
-  OutlinedInput,
-  Divider,
-  Alert,
+  Box, Typography, Grid, Card, CardContent, Paper, Button,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+  CircularProgress, Chip, FormControl, InputLabel, Select, MenuItem,
+  Checkbox, ListItemText, OutlinedInput, Divider, Alert, Snackbar,
 } from "@mui/material";
 import DownloadIcon from "@mui/icons-material/Download";
 import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import * as XLSX from "xlsx";
-import { getEmployees } from "../../services/employeeService";
-import type { Employee } from "../../services/employeeService";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import { useTranslation } from "react-i18next";
 
-// Import all services
+import { getEmployees } from "../../services/employeeService";
 import { assetService } from "../../services/assetService";
 import { lockerService } from "../../services/lockerService";
 import { acService } from "../../services/acService";
 import { ticketService } from "../../services/ticketService";
-import { getAllProcurementRequests } from "../../services/procurementService";
+import { procurementService } from "../../services/procurementService";
 import { inventoryService } from "../../services/inventoryService";
 
-// Report sections
-const reportSections = [
-  { id: "employees", label: "Employees" },
-  { id: "assets", label: "Assets" },
-  { id: "lockers", label: "Lockers" },
-  { id: "acs", label: "AC Units" },
-  { id: "tickets", label: "Maintenance Tickets" },
-  { id: "procurement", label: "Procurement" },
-  { id: "inventory", label: "Inventory" },
-];
-
 function Reports() {
-  // User info
-  const user = {
-    name: "Kinoura Youssef",
-    email: "KinouraYoussef@testflyqa.com",
-  };
-
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
-  const [selectedSections, setSelectedSections] = useState<string[]>(["employees"]);
+  const [selectedSections, setSelectedSections] = useState<string[]>([
+    "employees", "assets", "lockers", "acs", "tickets", "procurement", "inventory",
+  ]);
   const [reportData, setReportData] = useState<any>({});
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: "success" | "error" }>({
     open: false,
@@ -67,48 +34,33 @@ function Reports() {
     severity: "success",
   });
 
-  // Load all data
+  const reportSections = [
+    { id: "employees", label: t("reports.sections.employees") },
+    { id: "assets", label: t("reports.sections.assets") },
+    { id: "lockers", label: t("reports.sections.lockers") },
+    { id: "acs", label: t("reports.sections.acs") },
+    { id: "tickets", label: t("reports.sections.tickets") },
+    { id: "procurement", label: t("reports.sections.procurement") },
+    { id: "inventory", label: t("reports.sections.inventory") },
+  ];
+
   const loadAllData = async () => {
     try {
       setLoading(true);
       const data: any = {};
 
-      if (selectedSections.includes("employees")) {
-        data.employees = await getEmployees();
-      }
-
-      if (selectedSections.includes("assets")) {
-        data.assets = await assetService.getAll();
-      }
-
-      if (selectedSections.includes("lockers")) {
-        data.lockers = await lockerService.getAll();
-      }
-
-      if (selectedSections.includes("acs")) {
-        data.acs = await acService.getAll();
-      }
-
-      if (selectedSections.includes("tickets")) {
-        data.tickets = await ticketService.getAll();
-      }
-
-      if (selectedSections.includes("procurement")) {
-        data.procurement = await getAllProcurementRequests();
-      }
-
-      if (selectedSections.includes("inventory")) {
-        data.inventory = await inventoryService.getAll();
-      }
+      if (selectedSections.includes("employees")) data.employees = await getEmployees();
+      if (selectedSections.includes("assets")) data.assets = await assetService.getAll();
+      if (selectedSections.includes("lockers")) data.lockers = await lockerService.getAll();
+      if (selectedSections.includes("acs")) data.acs = await acService.getAll();
+      if (selectedSections.includes("tickets")) data.tickets = await ticketService.getAll();
+      if (selectedSections.includes("procurement")) data.procurement = await procurementService.getAll();
+      if (selectedSections.includes("inventory")) data.inventory = await inventoryService.getAll();
 
       setReportData(data);
     } catch (error) {
       console.error("Error loading report data:", error);
-      setSnackbar({
-        open: true,
-        message: "Failed to load report data",
-        severity: "error",
-      });
+      setSnackbar({ open: true, message: t("reports.failedLoad"), severity: "error" });
     } finally {
       setLoading(false);
     }
@@ -118,136 +70,226 @@ function Reports() {
     loadAllData();
   }, [selectedSections]);
 
-  // Export to Excel
   const exportToExcel = () => {
-    const allData: any[] = [];
+    try {
+      const wb = XLSX.utils.book_new();
 
-    // Employees
-    if (reportData.employees) {
-      reportData.employees.forEach((emp: any) => {
-        allData.push({
-          Section: "Employees",
-          "Name": `${emp.firstName} ${emp.lastName}`,
-          "Email": emp.email,
-          "Department": emp.department,
-          "Status": emp.status,
-          "Created": new Date(emp.createdAt).toLocaleDateString(),
-        });
-      });
+      if (selectedSections.includes("employees") && reportData.employees?.length) {
+        const ws = XLSX.utils.json_to_sheet(
+          reportData.employees.map((e: any) => ({
+            Name: `${e.firstName} ${e.lastName}`,
+            Department: e.department,
+            Email: e.email,
+            Location: e.location || "-",
+            Status: e.status,
+          }))
+        );
+        XLSX.utils.book_append_sheet(wb, ws, "Employees");
+      }
+
+      if (selectedSections.includes("assets") && reportData.assets?.length) {
+        const ws = XLSX.utils.json_to_sheet(
+          reportData.assets.map((a: any) => ({
+            Name: a.name, Type: a.type, Model: a.model || "-",
+            Serial: a.serialNumber || "-", Status: a.status,
+            Location: a.location || "-", AssignedTo: a.assignedTo || "Unassigned",
+          }))
+        );
+        XLSX.utils.book_append_sheet(wb, ws, "Assets");
+      }
+
+      if (selectedSections.includes("lockers") && reportData.lockers?.length) {
+        const ws = XLSX.utils.json_to_sheet(
+          reportData.lockers.map((l: any) => ({
+            Number: l.number, Location: l.location, Status: l.status,
+            LockType: l.lockType, AssignedTo: l.assignedToName || l.assignedTo || "Unassigned",
+          }))
+        );
+        XLSX.utils.book_append_sheet(wb, ws, "Lockers");
+      }
+
+      if (selectedSections.includes("acs") && reportData.acs?.length) {
+        const ws = XLSX.utils.json_to_sheet(
+          reportData.acs.map((ac: any) => ({
+            Name: ac.name, Location: ac.location, Brand: ac.brand,
+            CapacityBTU: ac.capacity, Status: ac.status,
+          }))
+        );
+        XLSX.utils.book_append_sheet(wb, ws, "AC Units");
+      }
+
+      if (selectedSections.includes("tickets") && reportData.tickets?.length) {
+        const ws = XLSX.utils.json_to_sheet(
+          reportData.tickets.map((t: any) => ({
+            Title: t.title, Priority: t.priority, Status: t.status,
+            Floor: t.floor || "-", Company: t.company || "-", Amount: t.amount,
+          }))
+        );
+        XLSX.utils.book_append_sheet(wb, ws, "Maintenance");
+      }
+
+      if (selectedSections.includes("procurement") && reportData.procurement?.length) {
+        const ws = XLSX.utils.json_to_sheet(
+          reportData.procurement.map((p: any) => ({
+            RequestNumber: p.requestNumber, Item: p.item, Requester: p.requesterName,
+            Department: p.department, Supplier: p.supplier || "-",
+            Total: p.total, Status: p.status,
+          }))
+        );
+        XLSX.utils.book_append_sheet(wb, ws, "Procurement");
+      }
+
+      if (selectedSections.includes("inventory") && reportData.inventory?.length) {
+        const ws = XLSX.utils.json_to_sheet(
+          reportData.inventory.map((i: any) => ({
+            Name: i.name, Category: i.category, Quantity: i.quantity,
+            Unit: i.unit, MinStock: i.minStock, Status: i.status,
+          }))
+        );
+        XLSX.utils.book_append_sheet(wb, ws, "Inventory");
+      }
+
+      XLSX.writeFile(wb, `TestFlyQA_Report_${new Date().toISOString().split("T")[0]}.xlsx`);
+      setSnackbar({ open: true, message: t("reports.excelExported"), severity: "success" });
+    } catch (err) {
+      console.error(err);
+      setSnackbar({ open: true, message: t("reports.excelFailed"), severity: "error" });
     }
-
-    // Assets
-    if (reportData.assets) {
-      reportData.assets.forEach((asset: any) => {
-        allData.push({
-          Section: "Assets",
-          "Name": asset.name,
-          "Type": asset.type,
-          "Model": asset.model,
-          "Serial #": asset.serialNumber,
-          "Status": asset.status,
-          "Assigned To": asset.assignedTo || "Unassigned",
-        });
-      });
-    }
-
-    // Lockers
-    if (reportData.lockers) {
-      reportData.lockers.forEach((locker: any) => {
-        allData.push({
-          Section: "Lockers",
-          "Number": locker.number,
-          "Location": locker.location,
-          "Status": locker.status,
-          "Lock Type": locker.lockType,
-          "Assigned To": locker.assignedToName || "Unassigned",
-          "Biometric": locker.biometricEnabled ? "Yes" : "No",
-        });
-      });
-    }
-
-    // AC Units
-    if (reportData.acs) {
-      reportData.acs.forEach((ac: any) => {
-        allData.push({
-          Section: "AC Units",
-          "Name": ac.name,
-          "Location": ac.location,
-          "Brand": ac.brand,
-          "Capacity": `${ac.capacity} BTU`,
-          "Status": ac.status,
-          "Maintenance Count": ac.maintenanceCount,
-          "Total Cost": `R$ ${ac.totalMaintenanceCost.toFixed(2)}`,
-        });
-      });
-    }
-
-    // Maintenance Tickets
-    if (reportData.tickets) {
-      reportData.tickets.forEach((ticket: any) => {
-        allData.push({
-          Section: "Maintenance",
-          "Title": ticket.title,
-          "Description": ticket.description,
-          "Status": ticket.status,
-          "Priority": ticket.priority,
-          "Assigned To": ticket.assignedTo || "Unassigned",
-          "Created": new Date(ticket.createdAt).toLocaleDateString(),
-        });
-      });
-    }
-
-    // Procurement
-    if (reportData.procurement) {
-      reportData.procurement.forEach((req: any) => {
-        allData.push({
-          Section: "Procurement",
-          "Request #": req.requestNumber,
-          "Department": req.department,
-          "Requester": req.requester,
-          "Vendor": req.vendor,
-          "Items": req.items,
-          "Total Amount": `R$ ${req.totalAmount.toFixed(2)}`,
-          "Status": req.status,
-        });
-      });
-    }
-
-    // Inventory
-    if (reportData.inventory) {
-      reportData.inventory.forEach((item: any) => {
-        allData.push({
-          Section: "Inventory",
-          "Item": item.name,
-          "Category": item.category,
-          "Quantity": `${item.quantity} ${item.unit}`,
-          "Min Stock": item.minStock,
-          "Status": item.status,
-          "Purchase Price": `R$ ${item.purchasePrice.toFixed(2)}`,
-        });
-      });
-    }
-
-    const ws = XLSX.utils.json_to_sheet(allData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Report");
-    XLSX.writeFile(wb, `Report_${new Date().toISOString().split("T")[0]}.xlsx`);
-
-    setSnackbar({
-      open: true,
-      message: "Report exported successfully!",
-      severity: "success",
-    });
   };
 
   const exportToPDF = () => {
-    window.print();
+    try {
+      const doc = new jsPDF();
+      doc.setFillColor(26, 35, 126);
+      doc.rect(0, 0, 210, 24, "F");
+
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(15);
+      doc.text(`TestFlyQA - ${t("reports.title")}`, 14, 16);
+
+      doc.setTextColor(120, 120, 120);
+      doc.setFontSize(9);
+      doc.text(`${t("reports.generatedBy")}: Kinoura Youssef (kinour.youssef@testflyqa.com)`, 14, 30);
+      doc.text(`${t("reports.date")}: ${new Date().toLocaleString()}`, 14, 35);
+
+      let currentY = 42;
+
+      if (selectedSections.includes("employees") && reportData.employees?.length) {
+        doc.setTextColor(26, 35, 126);
+        doc.setFontSize(12);
+        doc.text(t("reports.sections.employees"), 14, currentY);
+        autoTable(doc, {
+          startY: currentY + 3,
+          head: [["Name", "Department", "Email", "Status"]],
+          body: reportData.employees.map((e: any) => [`${e.firstName} ${e.lastName}`, e.department, e.email, e.status]),
+          headStyles: { fillColor: [26, 35, 126] },
+          styles: { fontSize: 8 },
+        });
+        currentY = (doc as any).lastAutoTable.finalY + 10;
+      }
+
+      if (selectedSections.includes("assets") && reportData.assets?.length) {
+        if (currentY > 230) { doc.addPage(); currentY = 20; }
+        doc.setTextColor(26, 35, 126);
+        doc.setFontSize(12);
+        doc.text(t("reports.sections.assets"), 14, currentY);
+        autoTable(doc, {
+          startY: currentY + 3,
+          head: [["Name", "Type", "Location", "Status", "Assigned To"]],
+          body: reportData.assets.map((a: any) => [a.name, a.type, a.location || "-", a.status, a.assignedTo || "Unassigned"]),
+          headStyles: { fillColor: [26, 35, 126] },
+          styles: { fontSize: 8 },
+        });
+        currentY = (doc as any).lastAutoTable.finalY + 10;
+      }
+
+      if (selectedSections.includes("lockers") && reportData.lockers?.length) {
+        if (currentY > 230) { doc.addPage(); currentY = 20; }
+        doc.setTextColor(26, 35, 126);
+        doc.setFontSize(12);
+        doc.text(t("reports.sections.lockers"), 14, currentY);
+        autoTable(doc, {
+          startY: currentY + 3,
+          head: [["Number", "Location", "Status", "Lock Type", "Assigned To"]],
+          body: reportData.lockers.map((l: any) => [l.number, l.location, l.status, l.lockType, l.assignedToName || l.assignedTo || "Unassigned"]),
+          headStyles: { fillColor: [26, 35, 126] },
+          styles: { fontSize: 8 },
+        });
+        currentY = (doc as any).lastAutoTable.finalY + 10;
+      }
+
+      if (selectedSections.includes("acs") && reportData.acs?.length) {
+        if (currentY > 230) { doc.addPage(); currentY = 20; }
+        doc.setTextColor(26, 35, 126);
+        doc.setFontSize(12);
+        doc.text(t("reports.sections.acs"), 14, currentY);
+        autoTable(doc, {
+          startY: currentY + 3,
+          head: [["Name", "Location", "Brand", "Capacity", "Status"]],
+          body: reportData.acs.map((ac: any) => [ac.name, ac.location, ac.brand, `${ac.capacity} BTU`, ac.status]),
+          headStyles: { fillColor: [26, 35, 126] },
+          styles: { fontSize: 8 },
+        });
+        currentY = (doc as any).lastAutoTable.finalY + 10;
+      }
+
+      if (selectedSections.includes("tickets") && reportData.tickets?.length) {
+        if (currentY > 230) { doc.addPage(); currentY = 20; }
+        doc.setTextColor(26, 35, 126);
+        doc.setFontSize(12);
+        doc.text(t("reports.sections.tickets"), 14, currentY);
+        autoTable(doc, {
+          startY: currentY + 3,
+          head: [["Title", "Floor", "Company", "Priority", "Status"]],
+          body: reportData.tickets.map((t: any) => [t.title, t.floor || "-", t.company || "-", t.priority, t.status]),
+          headStyles: { fillColor: [26, 35, 126] },
+          styles: { fontSize: 8 },
+        });
+        currentY = (doc as any).lastAutoTable.finalY + 10;
+      }
+
+      if (selectedSections.includes("procurement") && reportData.procurement?.length) {
+        if (currentY > 230) { doc.addPage(); currentY = 20; }
+        doc.setTextColor(26, 35, 126);
+        doc.setFontSize(12);
+        doc.text(t("reports.sections.procurement"), 14, currentY);
+        autoTable(doc, {
+          startY: currentY + 3,
+          head: [["Request #", "Item", "Requester", "Total", "Status"]],
+          body: reportData.procurement.map((p: any) => [p.requestNumber, p.item, p.requesterName, `R$ ${(p.total || 0).toFixed(2)}`, p.status]),
+          headStyles: { fillColor: [26, 35, 126] },
+          styles: { fontSize: 8 },
+        });
+        currentY = (doc as any).lastAutoTable.finalY + 10;
+      }
+
+      if (selectedSections.includes("inventory") && reportData.inventory?.length) {
+        if (currentY > 230) { doc.addPage(); currentY = 20; }
+        doc.setTextColor(26, 35, 126);
+        doc.setFontSize(12);
+        doc.text(t("reports.sections.inventory"), 14, currentY);
+        autoTable(doc, {
+          startY: currentY + 3,
+          head: [["Item", "Category", "Qty", "Min Stock", "Status"]],
+          body: reportData.inventory.map((i: any) => [i.name, i.category, `${i.quantity} ${i.unit}`, i.minStock, i.status]),
+          headStyles: { fillColor: [26, 35, 126] },
+          styles: { fontSize: 8 },
+        });
+      }
+
+      doc.save(`TestFlyQA_Report_${new Date().toISOString().split("T")[0]}.pdf`);
+      setSnackbar({ open: true, message: t("reports.pdfExported"), severity: "success" });
+    } catch (err) {
+      console.error(err);
+      setSnackbar({ open: true, message: t("reports.pdfFailed"), severity: "error" });
+    }
   };
 
   const handleSectionChange = (event: any) => {
     const value = event.target.value;
     if (value.includes("all")) {
-      setSelectedSections(reportSections.map((s) => s.id));
+      if (selectedSections.length === reportSections.length) setSelectedSections([]);
+      else setSelectedSections(reportSections.map((s) => s.id));
     } else {
       setSelectedSections(value);
     }
@@ -255,13 +297,13 @@ function Reports() {
 
   const getTotalItems = () => {
     let total = 0;
-    if (reportData.employees) total += reportData.employees.length;
-    if (reportData.assets) total += reportData.assets.length;
-    if (reportData.lockers) total += reportData.lockers.length;
-    if (reportData.acs) total += reportData.acs.length;
-    if (reportData.tickets) total += reportData.tickets.length;
-    if (reportData.procurement) total += reportData.procurement.length;
-    if (reportData.inventory) total += reportData.inventory.length;
+    if (selectedSections.includes("employees") && reportData.employees) total += reportData.employees.length;
+    if (selectedSections.includes("assets") && reportData.assets) total += reportData.assets.length;
+    if (selectedSections.includes("lockers") && reportData.lockers) total += reportData.lockers.length;
+    if (selectedSections.includes("acs") && reportData.acs) total += reportData.acs.length;
+    if (selectedSections.includes("tickets") && reportData.tickets) total += reportData.tickets.length;
+    if (selectedSections.includes("procurement") && reportData.procurement) total += reportData.procurement.length;
+    if (selectedSections.includes("inventory") && reportData.inventory) total += reportData.inventory.length;
     return total;
   };
 
@@ -275,11 +317,10 @@ function Reports() {
 
   return (
     <Box sx={{ p: 3 }}>
-      {/* Header */}
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
         <Box>
           <Typography variant="h4" sx={{ fontWeight: "bold", color: "#1a237e" }}>
-            📊 Reports
+            📊 {t("reports.title")}
           </Typography>
           <Typography sx={{ color: "text.secondary" }}>
             {new Date().toLocaleDateString()}
@@ -287,44 +328,41 @@ function Reports() {
         </Box>
         <Box sx={{ display: "flex", gap: 2 }}>
           <Button variant="outlined" startIcon={<RefreshIcon />} onClick={loadAllData}>
-            Refresh
+            {t("common.refresh")}
           </Button>
           <Button variant="contained" startIcon={<DownloadIcon />} onClick={exportToExcel}>
-            Export Excel
+            {t("reports.exportExcel")}
           </Button>
-          <Button variant="outlined" startIcon={<PictureAsPdfIcon />} onClick={exportToPDF}>
-            Export PDF
+          <Button variant="contained" color="secondary" startIcon={<PictureAsPdfIcon />} onClick={exportToPDF}>
+            {t("reports.exportPDF")}
           </Button>
         </Box>
       </Box>
 
-      {/* Section Selector */}
       <Paper sx={{ p: 2, mb: 3 }}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
           <Typography variant="body1" sx={{ fontWeight: "bold", minWidth: 120 }}>
-            Select Sections:
+            {t("reports.selectSections")}
           </Typography>
-          <FormControl sx={{ minWidth: 300 }}>
-            <InputLabel>Report Sections</InputLabel>
+          <FormControl sx={{ minWidth: 320 }}>
+            <InputLabel>{t("reports.reportSections")}</InputLabel>
             <Select
               multiple
               value={selectedSections}
               onChange={handleSectionChange}
-              input={<OutlinedInput label="Report Sections" />}
+              input={<OutlinedInput label={t("reports.reportSections")} />}
               renderValue={(selected) => (
                 <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
                   {selected.map((value) => {
                     const section = reportSections.find((s) => s.id === value);
-                    return section ? (
-                      <Chip key={value} label={section.label} size="small" />
-                    ) : null;
+                    return section ? <Chip key={value} label={section.label} size="small" /> : null;
                   })}
                 </Box>
               )}
             >
               <MenuItem value="all">
                 <Checkbox checked={selectedSections.length === reportSections.length} />
-                <ListItemText primary="All Sections" />
+                <ListItemText primary={t("reports.selectAll")} />
               </MenuItem>
               <Divider />
               {reportSections.map((section) => (
@@ -336,396 +374,242 @@ function Reports() {
             </Select>
           </FormControl>
           <Typography variant="body2" sx={{ color: "text.secondary" }}>
-            Total Items: <strong>{getTotalItems()}</strong>
+            {t("reports.totalItems")}: <strong>{getTotalItems()}</strong>
           </Typography>
         </Box>
       </Paper>
 
-      {/* Report Content */}
-      <Paper sx={{ p: 2 }}>
+      <Paper sx={{ p: 3 }}>
         <Typography variant="h6" sx={{ fontWeight: "bold", mb: 2 }}>
-          Report Summary
+          {t("reports.detailedReport")}
         </Typography>
 
-        {/* Summary Cards */}
-        <Grid container spacing={2} sx={{ mb: 3 }}>
-          {reportSections.map((section) => {
-            const data = reportData[section.id];
-            const count = data ? data.length : 0;
-            return (
-              <Grid item xs={12} sm={6} md={3} key={section.id}>
-                <Card>
-                  <CardContent>
-                    <Typography variant="body2" sx={{ color: "text.secondary" }}>
-                      {section.label}
-                    </Typography>
-                    <Typography variant="h5" sx={{ fontWeight: "bold" }}>
-                      {count}
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-            );
-          })}
-        </Grid>
-
-        <Divider sx={{ my: 2 }} />
-
-        {/* Employee Report Table (if selected) */}
-        {selectedSections.includes("employees") && reportData.employees && reportData.employees.length > 0 && (
-          <>
-            <Typography variant="h6" sx={{ fontWeight: "bold", mb: 1 }}>
-              👥 Employees
+        {selectedSections.includes("employees") && (
+          <Box sx={{ mb: 4 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: "bold", color: "#1a237e", mb: 1 }}>
+              {t("reports.sections.employees")} ({reportData.employees?.length || 0})
             </Typography>
-            <TableContainer>
+            <TableContainer sx={{ border: "1px solid #e0e0e0", borderRadius: 1 }}>
               <Table size="small">
-                <TableHead>
-                  <TableRow sx={{ bgcolor: "#f5f5f5" }}>
-                    <TableCell>Name</TableCell>
-                    <TableCell>Department</TableCell>
-                    <TableCell>Email</TableCell>
-                    <TableCell>Status</TableCell>
+                <TableHead sx={{ bgcolor: "#f5f5f5" }}>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: "bold" }}>{t("common.name")}</TableCell>
+                    <TableCell sx={{ fontWeight: "bold" }}>{t("employees.department")}</TableCell>
+                    <TableCell sx={{ fontWeight: "bold" }}>{t("employees.email")}</TableCell>
+                    <TableCell sx={{ fontWeight: "bold" }}>{t("common.status")}</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {reportData.employees.slice(0, 10).map((emp: any) => (
+                  {reportData.employees?.map((emp: any) => (
                     <TableRow key={emp.id}>
                       <TableCell>{emp.firstName} {emp.lastName}</TableCell>
                       <TableCell>{emp.department}</TableCell>
                       <TableCell>{emp.email}</TableCell>
-                      <TableCell>
-                        <Chip
-                          label={emp.status}
-                          size="small"
-                          color={emp.status === "Active" ? "success" : "error"}
-                        />
-                      </TableCell>
+                      <TableCell><Chip label={emp.status} size="small" color={emp.status === "Active" ? "success" : "default"} /></TableCell>
                     </TableRow>
                   ))}
-                  {reportData.employees.length > 10 && (
-                    <TableRow>
-                      <TableCell colSpan={4} align="center">
-                        <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                          + {reportData.employees.length - 10} more employees
-                        </Typography>
-                      </TableCell>
-                    </TableRow>
-                  )}
                 </TableBody>
               </Table>
             </TableContainer>
-            <Divider sx={{ my: 2 }} />
-          </>
+          </Box>
         )}
 
-        {/* Assets Table (if selected) */}
-        {selectedSections.includes("assets") && reportData.assets && reportData.assets.length > 0 && (
-          <>
-            <Typography variant="h6" sx={{ fontWeight: "bold", mb: 1 }}>
-              💻 Assets
+        {selectedSections.includes("assets") && (
+          <Box sx={{ mb: 4 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: "bold", color: "#1a237e", mb: 1 }}>
+              {t("reports.sections.assets")} ({reportData.assets?.length || 0})
             </Typography>
-            <TableContainer>
+            <TableContainer sx={{ border: "1px solid #e0e0e0", borderRadius: 1 }}>
               <Table size="small">
-                <TableHead>
-                  <TableRow sx={{ bgcolor: "#f5f5f5" }}>
-                    <TableCell>Name</TableCell>
-                    <TableCell>Type</TableCell>
-                    <TableCell>Model</TableCell>
-                    <TableCell>Status</TableCell>
+                <TableHead sx={{ bgcolor: "#f5f5f5" }}>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: "bold" }}>{t("common.name")}</TableCell>
+                    <TableCell sx={{ fontWeight: "bold" }}>{t("common.type")}</TableCell>
+                    <TableCell sx={{ fontWeight: "bold" }}>{t("common.location")}</TableCell>
+                    <TableCell sx={{ fontWeight: "bold" }}>{t("common.status")}</TableCell>
+                    <TableCell sx={{ fontWeight: "bold" }}>{t("assets.assignedTo")}</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {reportData.assets.slice(0, 10).map((asset: any) => (
-                    <TableRow key={asset.id}>
-                      <TableCell>{asset.name}</TableCell>
-                      <TableCell>{asset.type}</TableCell>
-                      <TableCell>{asset.model}</TableCell>
-                      <TableCell>
-                        <Chip
-                          label={asset.status}
-                          size="small"
-                          color={
-                            asset.status === "Available" ? "success" :
-                            asset.status === "In Use" ? "primary" :
-                            asset.status === "Maintenance" ? "warning" : "error"
-                          }
-                        />
-                      </TableCell>
+                  {reportData.assets?.map((a: any) => (
+                    <TableRow key={a.id}>
+                      <TableCell>{a.name}</TableCell>
+                      <TableCell>{a.type}</TableCell>
+                      <TableCell>{a.location || "-"}</TableCell>
+                      <TableCell><Chip label={a.status} size="small" variant="outlined" /></TableCell>
+                      <TableCell>{a.assignedTo || "-"}</TableCell>
                     </TableRow>
                   ))}
-                  {reportData.assets.length > 10 && (
-                    <TableRow>
-                      <TableCell colSpan={4} align="center">
-                        <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                          + {reportData.assets.length - 10} more assets
-                        </Typography>
-                      </TableCell>
-                    </TableRow>
-                  )}
                 </TableBody>
               </Table>
             </TableContainer>
-            <Divider sx={{ my: 2 }} />
-          </>
+          </Box>
         )}
 
-        {/* Lockers Table (if selected) */}
-        {selectedSections.includes("lockers") && reportData.lockers && reportData.lockers.length > 0 && (
-          <>
-            <Typography variant="h6" sx={{ fontWeight: "bold", mb: 1 }}>
-              🗄️ Lockers
+        {selectedSections.includes("lockers") && (
+          <Box sx={{ mb: 4 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: "bold", color: "#1a237e", mb: 1 }}>
+              {t("reports.sections.lockers")} ({reportData.lockers?.length || 0})
             </Typography>
-            <TableContainer>
+            <TableContainer sx={{ border: "1px solid #e0e0e0", borderRadius: 1 }}>
               <Table size="small">
-                <TableHead>
-                  <TableRow sx={{ bgcolor: "#f5f5f5" }}>
-                    <TableCell>Number</TableCell>
-                    <TableCell>Location</TableCell>
-                    <TableCell>Status</TableCell>
-                    <TableCell>Assigned To</TableCell>
+                <TableHead sx={{ bgcolor: "#f5f5f5" }}>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: "bold" }}>{t("lockers.lockerNumber")}</TableCell>
+                    <TableCell sx={{ fontWeight: "bold" }}>{t("common.location")}</TableCell>
+                    <TableCell sx={{ fontWeight: "bold" }}>{t("lockers.lockType")}</TableCell>
+                    <TableCell sx={{ fontWeight: "bold" }}>{t("common.status")}</TableCell>
+                    <TableCell sx={{ fontWeight: "bold" }}>{t("assets.assignedTo")}</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {reportData.lockers.slice(0, 10).map((locker: any) => (
-                    <TableRow key={locker.id}>
-                      <TableCell>{locker.number}</TableCell>
-                      <TableCell>{locker.location}</TableCell>
-                      <TableCell>
-                        <Chip
-                          label={locker.status}
-                          size="small"
-                          color={
-                            locker.status === "Available" ? "success" :
-                            locker.status === "Occupied" ? "primary" :
-                            locker.status === "Maintenance" ? "warning" : "info"
-                          }
-                        />
-                      </TableCell>
-                      <TableCell>{locker.assignedToName || "Unassigned"}</TableCell>
+                  {reportData.lockers?.map((l: any) => (
+                    <TableRow key={l.id}>
+                      <TableCell>#{l.number}</TableCell>
+                      <TableCell>{l.location}</TableCell>
+                      <TableCell>{l.lockType}</TableCell>
+                      <TableCell><Chip label={l.status} size="small" color={l.status === "Available" ? "success" : "warning"} /></TableCell>
+                      <TableCell>{l.assignedToName || l.assignedTo || "-"}</TableCell>
                     </TableRow>
                   ))}
-                  {reportData.lockers.length > 10 && (
-                    <TableRow>
-                      <TableCell colSpan={4} align="center">
-                        <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                          + {reportData.lockers.length - 10} more lockers
-                        </Typography>
-                      </TableCell>
-                    </TableRow>
-                  )}
                 </TableBody>
               </Table>
             </TableContainer>
-            <Divider sx={{ my: 2 }} />
-          </>
+          </Box>
         )}
 
-        {/* AC Units Table (if selected) */}
-        {selectedSections.includes("acs") && reportData.acs && reportData.acs.length > 0 && (
-          <>
-            <Typography variant="h6" sx={{ fontWeight: "bold", mb: 1 }}>
-              ❄️ AC Units
+        {selectedSections.includes("acs") && (
+          <Box sx={{ mb: 4 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: "bold", color: "#1a237e", mb: 1 }}>
+              {t("reports.sections.acs")} ({reportData.acs?.length || 0})
             </Typography>
-            <TableContainer>
+            <TableContainer sx={{ border: "1px solid #e0e0e0", borderRadius: 1 }}>
               <Table size="small">
-                <TableHead>
-                  <TableRow sx={{ bgcolor: "#f5f5f5" }}>
-                    <TableCell>Name</TableCell>
-                    <TableCell>Location</TableCell>
-                    <TableCell>Brand</TableCell>
-                    <TableCell>Status</TableCell>
+                <TableHead sx={{ bgcolor: "#f5f5f5" }}>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: "bold" }}>{t("common.name")}</TableCell>
+                    <TableCell sx={{ fontWeight: "bold" }}>{t("common.location")}</TableCell>
+                    <TableCell sx={{ fontWeight: "bold" }}>{t("ac.brand")}</TableCell>
+                    <TableCell sx={{ fontWeight: "bold" }}>{t("ac.capacity")}</TableCell>
+                    <TableCell sx={{ fontWeight: "bold" }}>{t("common.status")}</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {reportData.acs.slice(0, 10).map((ac: any) => (
+                  {reportData.acs?.map((ac: any) => (
                     <TableRow key={ac.id}>
                       <TableCell>{ac.name}</TableCell>
                       <TableCell>{ac.location}</TableCell>
                       <TableCell>{ac.brand}</TableCell>
-                      <TableCell>
-                        <Chip
-                          label={ac.status}
-                          size="small"
-                          color={
-                            ac.status === "Operational" ? "success" :
-                            ac.status === "Under Maintenance" ? "warning" : "error"
-                          }
-                        />
-                      </TableCell>
+                      <TableCell>{ac.capacity} BTU</TableCell>
+                      <TableCell><Chip label={ac.status} size="small" color={ac.status === "Operational" ? "success" : "error"} /></TableCell>
                     </TableRow>
                   ))}
-                  {reportData.acs.length > 10 && (
-                    <TableRow>
-                      <TableCell colSpan={4} align="center">
-                        <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                          + {reportData.acs.length - 10} more AC units
-                        </Typography>
-                      </TableCell>
-                    </TableRow>
-                  )}
                 </TableBody>
               </Table>
             </TableContainer>
-            <Divider sx={{ my: 2 }} />
-          </>
+          </Box>
         )}
 
-        {/* Maintenance Tickets Table (if selected) */}
-        {selectedSections.includes("tickets") && reportData.tickets && reportData.tickets.length > 0 && (
-          <>
-            <Typography variant="h6" sx={{ fontWeight: "bold", mb: 1 }}>
-              🔧 Maintenance Tickets
+        {selectedSections.includes("tickets") && (
+          <Box sx={{ mb: 4 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: "bold", color: "#1a237e", mb: 1 }}>
+              {t("reports.sections.tickets")} ({reportData.tickets?.length || 0})
             </Typography>
-            <TableContainer>
+            <TableContainer sx={{ border: "1px solid #e0e0e0", borderRadius: 1 }}>
               <Table size="small">
-                <TableHead>
-                  <TableRow sx={{ bgcolor: "#f5f5f5" }}>
-                    <TableCell>Title</TableCell>
-                    <TableCell>Status</TableCell>
-                    <TableCell>Priority</TableCell>
-                    <TableCell>Assigned To</TableCell>
+                <TableHead sx={{ bgcolor: "#f5f5f5" }}>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: "bold" }}>{t("maintenance.ticketTitle")}</TableCell>
+                    <TableCell sx={{ fontWeight: "bold" }}>{t("maintenance.company")}</TableCell>
+                    <TableCell sx={{ fontWeight: "bold" }}>{t("maintenance.floor")}</TableCell>
+                    <TableCell sx={{ fontWeight: "bold" }}>{t("common.priority")}</TableCell>
+                    <TableCell sx={{ fontWeight: "bold" }}>{t("common.status")}</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {reportData.tickets.slice(0, 10).map((ticket: any) => (
-                    <TableRow key={ticket.id}>
-                      <TableCell>{ticket.title}</TableCell>
-                      <TableCell>
-                        <Chip
-                          label={ticket.status}
-                          size="small"
-                          color={
-                            ticket.status === "Closed" ? "success" :
-                            ticket.status === "In Progress" ? "warning" : "info"
-                          }
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={ticket.priority}
-                          size="small"
-                          color={
-                            ticket.priority === "High" ? "error" :
-                            ticket.priority === "Medium" ? "warning" : "info"
-                          }
-                        />
-                      </TableCell>
-                      <TableCell>{ticket.assignedTo || "Unassigned"}</TableCell>
+                  {reportData.tickets?.map((t: any) => (
+                    <TableRow key={t.id}>
+                      <TableCell>{t.title}</TableCell>
+                      <TableCell>{t.company || "-"}</TableCell>
+                      <TableCell>{t.floor || "-"}</TableCell>
+                      <TableCell><Chip label={t.priority} size="small" color="info" /></TableCell>
+                      <TableCell><Chip label={t.status} size="small" /></TableCell>
                     </TableRow>
                   ))}
-                  {reportData.tickets.length > 10 && (
-                    <TableRow>
-                      <TableCell colSpan={4} align="center">
-                        <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                          + {reportData.tickets.length - 10} more tickets
-                        </Typography>
-                      </TableCell>
-                    </TableRow>
-                  )}
                 </TableBody>
               </Table>
             </TableContainer>
-            <Divider sx={{ my: 2 }} />
-          </>
+          </Box>
         )}
 
-        {/* Procurement Table (if selected) */}
-        {selectedSections.includes("procurement") && reportData.procurement && reportData.procurement.length > 0 && (
-          <>
-            <Typography variant="h6" sx={{ fontWeight: "bold", mb: 1 }}>
-              🛒 Procurement
+        {selectedSections.includes("procurement") && (
+          <Box sx={{ mb: 4 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: "bold", color: "#1a237e", mb: 1 }}>
+              {t("reports.sections.procurement")} ({reportData.procurement?.length || 0})
             </Typography>
-            <TableContainer>
+            <TableContainer sx={{ border: "1px solid #e0e0e0", borderRadius: 1 }}>
               <Table size="small">
-                <TableHead>
-                  <TableRow sx={{ bgcolor: "#f5f5f5" }}>
-                    <TableCell>Request #</TableCell>
-                    <TableCell>Department</TableCell>
-                    <TableCell>Requester</TableCell>
-                    <TableCell>Total Amount</TableCell>
+                <TableHead sx={{ bgcolor: "#f5f5f5" }}>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: "bold" }}>{t("procurement.requestNumber")}</TableCell>
+                    <TableCell sx={{ fontWeight: "bold" }}>{t("procurement.item")}</TableCell>
+                    <TableCell sx={{ fontWeight: "bold" }}>{t("procurement.requesterName")}</TableCell>
+                    <TableCell sx={{ fontWeight: "bold" }}>{t("procurement.total")}</TableCell>
+                    <TableCell sx={{ fontWeight: "bold" }}>{t("common.status")}</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {reportData.procurement.slice(0, 10).map((req: any) => (
-                    <TableRow key={req.id}>
-                      <TableCell>{req.requestNumber}</TableCell>
-                      <TableCell>{req.department}</TableCell>
-                      <TableCell>{req.requester}</TableCell>
-                      <TableCell>R$ {req.totalAmount.toFixed(2)}</TableCell>
+                  {reportData.procurement?.map((p: any) => (
+                    <TableRow key={p.id}>
+                      <TableCell>{p.requestNumber}</TableCell>
+                      <TableCell>{p.item}</TableCell>
+                      <TableCell>{p.requesterName}</TableCell>
+                      <TableCell>R$ {(p.total || 0).toFixed(2)}</TableCell>
+                      <TableCell><Chip label={p.status} size="small" color="primary" /></TableCell>
                     </TableRow>
                   ))}
-                  {reportData.procurement.length > 10 && (
-                    <TableRow>
-                      <TableCell colSpan={4} align="center">
-                        <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                          + {reportData.procurement.length - 10} more requests
-                        </Typography>
-                      </TableCell>
-                    </TableRow>
-                  )}
                 </TableBody>
               </Table>
             </TableContainer>
-            <Divider sx={{ my: 2 }} />
-          </>
+          </Box>
         )}
 
-        {/* Inventory Table (if selected) */}
-        {selectedSections.includes("inventory") && reportData.inventory && reportData.inventory.length > 0 && (
-          <>
-            <Typography variant="h6" sx={{ fontWeight: "bold", mb: 1 }}>
-              📦 Inventory
+        {selectedSections.includes("inventory") && (
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: "bold", color: "#1a237e", mb: 1 }}>
+              {t("reports.sections.inventory")} ({reportData.inventory?.length || 0})
             </Typography>
-            <TableContainer>
+            <TableContainer sx={{ border: "1px solid #e0e0e0", borderRadius: 1 }}>
               <Table size="small">
-                <TableHead>
-                  <TableRow sx={{ bgcolor: "#f5f5f5" }}>
-                    <TableCell>Item</TableCell>
-                    <TableCell>Category</TableCell>
-                    <TableCell>Quantity</TableCell>
-                    <TableCell>Status</TableCell>
+                <TableHead sx={{ bgcolor: "#f5f5f5" }}>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: "bold" }}>{t("inventory.itemName")}</TableCell>
+                    <TableCell sx={{ fontWeight: "bold" }}>{t("common.category")}</TableCell>
+                    <TableCell sx={{ fontWeight: "bold" }}>{t("inventory.quantity")}</TableCell>
+                    <TableCell sx={{ fontWeight: "bold" }}>{t("inventory.minStock")}</TableCell>
+                    <TableCell sx={{ fontWeight: "bold" }}>{t("common.status")}</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {reportData.inventory.slice(0, 10).map((item: any) => (
-                    <TableRow key={item.id}>
-                      <TableCell>{item.name}</TableCell>
-                      <TableCell>{item.category}</TableCell>
-                      <TableCell>{item.quantity} {item.unit}</TableCell>
-                      <TableCell>
-                        <Chip
-                          label={item.status}
-                          size="small"
-                          color={
-                            item.status === "In Stock" ? "success" :
-                            item.status === "Low Stock" ? "warning" : "error"
-                          }
-                        />
-                      </TableCell>
+                  {reportData.inventory?.map((i: any) => (
+                    <TableRow key={i.id}>
+                      <TableCell>{i.name}</TableCell>
+                      <TableCell>{i.category}</TableCell>
+                      <TableCell>{i.quantity} {i.unit}</TableCell>
+                      <TableCell>{i.minStock}</TableCell>
+                      <TableCell><Chip label={i.status} size="small" color={i.status === "In Stock" ? "success" : "error"} /></TableCell>
                     </TableRow>
                   ))}
-                  {reportData.inventory.length > 10 && (
-                    <TableRow>
-                      <TableCell colSpan={4} align="center">
-                        <Typography variant="caption" sx={{ color: "text.secondary" }}>
-                          + {reportData.inventory.length - 10} more items
-                        </Typography>
-                      </TableCell>
-                    </TableRow>
-                  )}
                 </TableBody>
               </Table>
             </TableContainer>
-            <Divider sx={{ my: 2 }} />
-          </>
-        )}
-
-        {!selectedSections.some((id) => reportData[id] && reportData[id].length > 0) && (
-          <Alert severity="info">
-            No data available for the selected sections. Please select different sections or add data first.
-          </Alert>
+          </Box>
         )}
       </Paper>
+
+      <Snackbar open={snackbar.open} autoHideDuration={3000} onClose={() => setSnackbar({ ...snackbar, open: false })}>
+        <Alert severity={snackbar.severity}>{snackbar.message}</Alert>
+      </Snackbar>
     </Box>
   );
 }

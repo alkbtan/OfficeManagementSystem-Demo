@@ -27,3 +27,13 @@ frontend/.env.*
 # OS
 .DS_Store
 Thumbs.db
+
+# Allow example config
+!backend/backend/appsettings.example.json
+
+# User uploaded files
+backend/backend/wwwroot/uploads/
+**/wwwroot/uploads/
+
+# Full code export (dev helper)
+FULL_CODE_EXPORT.txt

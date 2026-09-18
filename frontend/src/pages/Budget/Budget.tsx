@@ -1,648 +1,207 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import {
-  Box,
-  Typography,
-  Grid,
-  Card,
-  CardContent,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Button,
-  CircularProgress,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
-  MenuItem,
-  Snackbar,
-  Alert,
-  LinearProgress,
+  Box, Typography, Grid, Card, CardContent, Paper, Table, TableBody,
+  TableCell, TableContainer, TableHead, TableRow, Button, IconButton,
+  Tooltip, CircularProgress, Dialog, DialogTitle, DialogContent,
+  DialogActions, TextField, MenuItem, Snackbar, Alert,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
+import EditIcon from "@mui/icons-material/Edit";
+import DeleteIcon from "@mui/icons-material/Delete";
 import RefreshIcon from "@mui/icons-material/Refresh";
+import { useTranslation } from "react-i18next";
 import { budgetService } from "../../services/budgetService";
 import type { Budget as BudgetModel, BudgetSummary } from "../../services/budgetService";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-} from "recharts";
 
 function BudgetPage() {
+  const { t } = useTranslation();
   const [budgets, setBudgets] = useState<BudgetModel[]>([]);
   const [summary, setSummary] = useState<BudgetSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [openDialog, setOpenDialog] = useState(false);
-
-  const [snackbar, setSnackbar] = useState({
-    open: false,
-    message: "",
-    severity: "success" as "success" | "error",
-  });
+  const [editingBudget, setEditingBudget] = useState<BudgetModel | null>(null);
 
   const [formData, setFormData] = useState({
-    category: "",
-    planned: 0,
-    spent: 0,
-    year: new Date().getFullYear(),
-    month: new Date().getMonth() + 1,
+    category: "Maintenance", planned: 0, spent: 0,
+    year: new Date().getFullYear(), month: new Date().getMonth() + 1,
   });
 
-  const showSnackbar = (
-    message: string,
-    severity: "success" | "error"
-  ) => {
-    setSnackbar({
-      open: true,
-      message,
-      severity,
-    });
-  };
+  const [snackbar, setSnackbar] = useState({
+    open: false, message: "", severity: "success" as "success" | "error",
+  });
+
+  const categories = ["Maintenance", "Procurement", "Utilities", "Events", "Projects", "Cleaning Supplies", "IT Equipment"];
 
   const loadData = async () => {
     try {
       setLoading(true);
-
-      const [budgetsData, summaryData] = await Promise.all([
-        budgetService.getAll(),
-        budgetService.getSummary(),
-      ]);
-
+      const [budgetsData, summaryData] = await Promise.all([budgetService.getAll(), budgetService.getSummary()]);
       setBudgets(budgetsData);
       setSummary(summaryData);
     } catch (error) {
-      console.error("Error loading budget:", error);
-      showSnackbar("Failed to load budget", "error");
+      console.error("Error loading budget data:", error);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  useEffect(() => { loadData(); }, []);
 
-  const handleSaveBudget = async () => {
+  const handleOpenDialog = (budget?: BudgetModel) => {
+    if (budget) {
+      setEditingBudget(budget);
+      setFormData({ category: budget.category, planned: budget.planned, spent: budget.spent, year: budget.year, month: budget.month });
+    } else {
+      setEditingBudget(null);
+      setFormData({ category: "Maintenance", planned: 0, spent: 0, year: new Date().getFullYear(), month: new Date().getMonth() + 1 });
+    }
+    setOpenDialog(true);
+  };
+
+  const handleCloseDialog = () => {
+    setOpenDialog(false);
+    setEditingBudget(null);
+  };
+
+  const handleSave = async () => {
     try {
-      await budgetService.create(formData);
-
-      showSnackbar(
-        "Budget created successfully!",
-        "success"
-      );
-
-      setOpenDialog(false);
+      if (editingBudget) {
+        await budgetService.update(editingBudget.id, formData);
+        setSnackbar({ open: true, message: t("common.success"), severity: "success" });
+      } else {
+        await budgetService.create(formData);
+        setSnackbar({ open: true, message: t("common.success"), severity: "success" });
+      }
+      handleCloseDialog();
       loadData();
     } catch (error) {
-      console.error("Error saving budget:", error);
-      showSnackbar("Failed to save budget", "error");
+      setSnackbar({ open: true, message: t("common.error"), severity: "error" });
     }
   };
 
-  const categories = [
-    "Maintenance",
-    "Procurement",
-    "Utilities",
-    "Events",
-    "Projects",
-  ];
+  const handleDelete = async (id: number) => {
+    if (window.confirm(t("common.confirmDelete"))) {
+      try {
+        await budgetService.delete(id);
+        setSnackbar({ open: true, message: t("common.success"), severity: "success" });
+        loadData();
+      } catch (error) {
+        setSnackbar({ open: true, message: t("common.error"), severity: "error" });
+      }
+    }
+  };
 
   if (loading) {
     return (
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "center",
-          py: 8,
-        }}
-      >
+      <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
         <CircularProgress />
       </Box>
     );
   }
 
-  const categoryData =
-    summary?.categories.map((cat) => ({
-      name: cat.category,
-      planned: cat.planned,
-      spent: cat.spent,
-    })) || [];
-
   return (
     <Box sx={{ p: 3 }}>
-      <Box
-        sx={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          mb: 3,
-        }}
-      >
+      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
         <Box>
-          <Typography
-            variant="h4"
-            sx={{
-              fontWeight: "bold",
-              color: "#1a237e",
-            }}
-          >
-            💰 Budget
+          <Typography variant="h4" sx={{ fontWeight: "bold", color: "#1a237e" }}>
+            💰 {t("budget.title")}
           </Typography>
-
-          <Typography
-            sx={{
-              color: "text.secondary",
-            }}
-          >
-            Planned vs spent
-          </Typography>
+          <Typography sx={{ color: "text.secondary" }}>{t("budget.subtitle")}</Typography>
         </Box>
-
-        <Box
-          sx={{
-            display: "flex",
-            gap: 2,
-          }}
-        >
-          <Button
-            variant="outlined"
-            startIcon={<RefreshIcon />}
-            onClick={loadData}
-          >
-            Refresh
-          </Button>
-
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => setOpenDialog(true)}
-          >
-            Add Budget
-          </Button>
+        <Box sx={{ display: "flex", gap: 2 }}>
+          <Button variant="outlined" startIcon={<RefreshIcon />} onClick={loadData}>{t("common.refresh")}</Button>
+          <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpenDialog()}>{t("budget.addBudget")}</Button>
         </Box>
       </Box>
 
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={6} md={4}>
+        <Grid item xs={12} sm={4}>
           <Card sx={{ bgcolor: "#e3f2fd" }}>
             <CardContent>
-              <Typography
-                variant="body2"
-                sx={{ color: "text.secondary" }}
-              >
-                Planned
-              </Typography>
-
-              <Typography
-                variant="h4"
-                sx={{
-                  fontWeight: "bold",
-                  color: "#1976d2",
-                }}
-              >
-                R$ {summary?.planned.toFixed(2) || "0.00"}
-              </Typography>
+              <Typography variant="body2">{t("budget.planned")}</Typography>
+              <Typography variant="h4" fontWeight="bold">R$ {summary?.planned?.toFixed(2) || "0.00"}</Typography>
             </CardContent>
           </Card>
         </Grid>
-
-        <Grid item xs={12} sm={6} md={4}>
+        <Grid item xs={12} sm={4}>
           <Card sx={{ bgcolor: "#fff3e0" }}>
             <CardContent>
-              <Typography
-                variant="body2"
-                sx={{ color: "text.secondary" }}
-              >
-                Spent
-              </Typography>
-
-              <Typography
-                variant="h4"
-                sx={{
-                  fontWeight: "bold",
-                  color: "#ff9800",
-                }}
-              >
-                R$ {summary?.spent.toFixed(2) || "0.00"}
-              </Typography>
+              <Typography variant="body2">{t("budget.spent")}</Typography>
+              <Typography variant="h4" fontWeight="bold">R$ {summary?.spent?.toFixed(2) || "0.00"}</Typography>
             </CardContent>
           </Card>
         </Grid>
-
-        <Grid item xs={12} sm={6} md={4}>
+        <Grid item xs={12} sm={4}>
           <Card sx={{ bgcolor: "#e8f5e9" }}>
             <CardContent>
-              <Typography
-                variant="body2"
-                sx={{ color: "text.secondary" }}
-              >
-                Remaining
-              </Typography>
-
-              <Typography
-                variant="h4"
-                sx={{
-                  fontWeight: "bold",
-                  color: "#4caf50",
-                }}
-              >
-                R$ {summary?.remaining.toFixed(2) || "0.00"}
-              </Typography>
+              <Typography variant="body2">{t("budget.remaining")}</Typography>
+              <Typography variant="h4" fontWeight="bold">R$ {summary?.remaining?.toFixed(2) || "0.00"}</Typography>
             </CardContent>
           </Card>
         </Grid>
       </Grid>
 
-      <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 2 }}>
-            <Typography
-              variant="h6"
-              sx={{
-                fontWeight: "bold",
-                mb: 2,
-              }}
-            >
-              Budget by Category
-            </Typography>
-
-            <ResponsiveContainer
-              width="100%"
-              height={300}
-            >
-              <BarChart data={categoryData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-
-                <Bar
-                  dataKey="planned"
-                  fill="#1976d2"
-                />
-
-                <Bar
-                  dataKey="spent"
-                  fill="#ff9800"
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </Paper>
-        </Grid>
-
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 2 }}>
-            <Typography
-              variant="h6"
-              sx={{
-                fontWeight: "bold",
-                mb: 2,
-              }}
-            >
-              Budget Utilization
-            </Typography>
-
-            <Box sx={{ p: 2 }}>
-              {summary?.categories.map((cat) => (
-                <Box
-                  key={cat.category}
-                  sx={{ mb: 2 }}
-                >
-                  <Box
-                    sx={{
-                      display: "flex",
-                      justifyContent:
-                        "space-between",
-                    }}
-                  >
-                    <Typography variant="body2">
-                      {cat.category}
-                    </Typography>
-
-                    <Typography variant="body2">
-                      {cat.planned > 0
-                        ? (
-                            (cat.spent /
-                              cat.planned) *
-                            100
-                          ).toFixed(0)
-                        : 0}
-                      %
-                    </Typography>
-                  </Box>
-
-                  <LinearProgress
-                    variant="determinate"
-                    value={
-                      cat.planned > 0
-                        ? Math.min(
-                            (cat.spent /
-                              cat.planned) *
-                              100,
-                            100
-                          )
-                        : 0
-                    }
-                    sx={{
-                      height: 8,
-                      borderRadius: 4,
-                    }}
-                    color={
-                      cat.spent > cat.planned
-                        ? "error"
-                        : "primary"
-                    }
-                  />
-                </Box>
-              ))}
-            </Box>
-          </Paper>
-        </Grid>
-      </Grid>
-
-      <Paper sx={{ p: 2 }}>
-        <Typography
-          variant="h6"
-          sx={{
-            fontWeight: "bold",
-            mb: 2,
-          }}
-        >
-          Budget Details
-        </Typography>
-
-        <TableContainer>
-          <Table>
-            <TableHead>
-              <TableRow
-                sx={{ bgcolor: "#f5f5f5" }}
-              >
-                <TableCell>Category</TableCell>
-                <TableCell align="right">
-                  Planned
-                </TableCell>
-                <TableCell align="right">
-                  Spent
-                </TableCell>
-                <TableCell align="right">
-                  Remaining
-                </TableCell>
-                <TableCell>Month</TableCell>
-                <TableCell>Year</TableCell>
+      <TableContainer component={Paper} sx={{ borderRadius: 2 }}>
+        <Table>
+          <TableHead sx={{ bgcolor: "#f5f5f5" }}>
+            <TableRow>
+              <TableCell sx={{ fontWeight: "bold" }}>{t("budget.category")}</TableCell>
+              <TableCell align="right" sx={{ fontWeight: "bold" }}>{t("budget.planned")}</TableCell>
+              <TableCell align="right" sx={{ fontWeight: "bold" }}>{t("budget.spent")}</TableCell>
+              <TableCell align="right" sx={{ fontWeight: "bold" }}>{t("budget.remaining")}</TableCell>
+              <TableCell align="center" sx={{ fontWeight: "bold" }}>{t("common.actions")}</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {budgets.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} align="center">{t("budget.noItems")}</TableCell>
               </TableRow>
-            </TableHead>
-
-            <TableBody>
-              {budgets.length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={6}
-                    align="center"
-                  >
-                    No budget entries found
+            ) : (
+              budgets.map((b) => (
+                <TableRow key={b.id} hover>
+                  <TableCell sx={{ fontWeight: "medium" }}>{b.category}</TableCell>
+                  <TableCell align="right">R$ {b.planned?.toFixed(2)}</TableCell>
+                  <TableCell align="right">R$ {b.spent?.toFixed(2)}</TableCell>
+                  <TableCell align="right" sx={{ color: b.planned - b.spent < 0 ? "error.main" : "success.main", fontWeight: "bold" }}>
+                    R$ {(b.planned - b.spent).toFixed(2)}
+                  </TableCell>
+                  <TableCell align="center">
+                    <Tooltip title={t("common.edit")}>
+                      <IconButton size="small" color="primary" onClick={() => handleOpenDialog(b)}><EditIcon fontSize="small" /></IconButton>
+                    </Tooltip>
+                    <Tooltip title={t("common.delete")}>
+                      <IconButton size="small" color="error" onClick={() => handleDelete(b.id)}><DeleteIcon fontSize="small" /></IconButton>
+                    </Tooltip>
                   </TableCell>
                 </TableRow>
-              ) : (
-                budgets.map((budget) => (
-                  <TableRow key={budget.id}>
-                    <TableCell>
-                      {budget.category}
-                    </TableCell>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
 
-                    <TableCell align="right">
-                      R${" "}
-                      {budget.planned.toFixed(2)}
-                    </TableCell>
-
-                    <TableCell align="right">
-                      R${" "}
-                      {budget.spent.toFixed(2)}
-                    </TableCell>
-
-                    <TableCell
-                      align="right"
-                      sx={{
-                        color:
-                          budget.planned -
-                            budget.spent <
-                          0
-                            ? "error.main"
-                            : "success.main",
-                      }}
-                    >
-                      R${" "}
-                      {(
-                        budget.planned -
-                        budget.spent
-                      ).toFixed(2)}
-                    </TableCell>
-
-                    <TableCell>
-                      {new Date(
-                        2000,
-                        budget.month - 1
-                      ).toLocaleString(
-                        "default",
-                        {
-                          month: "long",
-                        }
-                      )}
-                    </TableCell>
-
-                    <TableCell>
-                      {budget.year}
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Paper>
-
-      <Dialog
-        open={openDialog}
-        onClose={() => setOpenDialog(false)}
-        maxWidth="sm"
-        fullWidth
-      >
-        <DialogTitle>
-          Add Budget Entry
+      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ bgcolor: "#1a237e", color: "white" }}>
+          {editingBudget ? t("budget.editBudget") : t("budget.addBudget")}
         </DialogTitle>
-
-        <DialogContent>
-          <Box
-            sx={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 2,
-              mt: 1,
-            }}
-          >
-            <TextField
-              select
-              label="Category"
-              fullWidth
-              required
-              value={formData.category}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  category: e.target.value,
-                })
-              }
-            >
-              {categories.map((cat) => (
-                <MenuItem
-                  key={cat}
-                  value={cat}
-                >
-                  {cat}
-                </MenuItem>
-              ))}
-            </TextField>
-
-            <TextField
-              label="Planned Amount"
-              type="number"
-              fullWidth
-              required
-              value={formData.planned}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  planned: Number(
-                    e.target.value
-                  ),
-                })
-              }
-            />
-
-            <TextField
-              label="Spent Amount"
-              type="number"
-              fullWidth
-              required
-              value={formData.spent}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  spent: Number(
-                    e.target.value
-                  ),
-                })
-              }
-            />
-
-            <TextField
-              label="Year"
-              type="number"
-              fullWidth
-              required
-              value={formData.year}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  year: Number(
-                    e.target.value
-                  ),
-                })
-              }
-            />
-
-            <TextField
-              select
-              label="Month"
-              fullWidth
-              required
-              value={formData.month}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  month: Number(
-                    e.target.value
-                  ),
-                })
-              }
-            >
-              {Array.from(
-                { length: 12 },
-                (_, i) => i + 1
-              ).map((month) => (
-                <MenuItem
-                  key={month}
-                  value={month}
-                >
-                  {new Date(
-                    2000,
-                    month - 1
-                  ).toLocaleString(
-                    "default",
-                    {
-                      month: "long",
-                    }
-                  )}
-                </MenuItem>
-              ))}
-            </TextField>
-          </Box>
+        <DialogContent sx={{ mt: 2 }}>
+          <TextField select fullWidth margin="dense" label={t("budget.category")} value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })}>
+            {categories.map((cat) => (<MenuItem key={cat} value={cat}>{cat}</MenuItem>))}
+          </TextField>
+          <TextField fullWidth margin="dense" label={t("budget.planned")} type="number" value={formData.planned} onChange={(e) => setFormData({ ...formData, planned: Number(e.target.value) })} />
+          <TextField fullWidth margin="dense" label={t("budget.spent")} type="number" value={formData.spent} onChange={(e) => setFormData({ ...formData, spent: Number(e.target.value) })} />
         </DialogContent>
-
-        <DialogActions>
-          <Button
-            onClick={() =>
-              setOpenDialog(false)
-            }
-          >
-            Cancel
-          </Button>
-
-          <Button
-            variant="contained"
-            onClick={handleSaveBudget}
-          >
-            Create
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={handleCloseDialog}>{t("common.cancel")}</Button>
+          <Button variant="contained" onClick={handleSave} sx={{ bgcolor: "#1a237e" }}>
+            {editingBudget ? t("common.update") : t("common.save")}
           </Button>
         </DialogActions>
       </Dialog>
 
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={3000}
-        onClose={() =>
-          setSnackbar({
-            ...snackbar,
-            open: false,
-          })
-        }
-        anchorOrigin={{
-          vertical: "bottom",
-          horizontal: "right",
-        }}
-      >
-        <Alert
-          severity={snackbar.severity}
-          onClose={() =>
-            setSnackbar({
-              ...snackbar,
-              open: false,
-            })
-          }
-        >
-          {snackbar.message}
-        </Alert>
+      <Snackbar open={snackbar.open} autoHideDuration={3000} onClose={() => setSnackbar({ ...snackbar, open: false })}>
+        <Alert severity={snackbar.severity}>{snackbar.message}</Alert>
       </Snackbar>
     </Box>
   );

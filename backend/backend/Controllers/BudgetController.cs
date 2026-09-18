@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using OfficeManagementAPI.Data;
 using OfficeManagementAPI.Models;
@@ -19,7 +19,7 @@ public class BudgetController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<Budget>>> GetAll()
     {
-        return await _context.Budgets.ToListAsync();
+        return await _context.Budgets.OrderByDescending(b => b.Year).ThenByDescending(b => b.Month).ToListAsync();
     }
 
     [HttpGet("summary")]
@@ -59,12 +59,30 @@ public class BudgetController : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(int id, Budget budget)
     {
-        if (id != budget.Id)
-            return BadRequest();
+        var existing = await _context.Budgets.FindAsync(id);
+        if (existing == null)
+            return NotFound();
 
-        budget.UpdatedAt = DateTime.UtcNow;
-        _context.Entry(budget).State = EntityState.Modified;
+        existing.Category = budget.Category;
+        existing.Planned = budget.Planned;
+        existing.Spent = budget.Spent;
+        existing.Year = budget.Year;
+        existing.Month = budget.Month;
+        existing.UpdatedAt = DateTime.UtcNow;
+
         await _context.SaveChangesAsync();
-        return Ok(budget);
+        return Ok(existing);
+    }
+
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> Delete(int id)
+    {
+        var budget = await _context.Budgets.FindAsync(id);
+        if (budget == null)
+            return NotFound();
+
+        _context.Budgets.Remove(budget);
+        await _context.SaveChangesAsync();
+        return NoContent();
     }
 }

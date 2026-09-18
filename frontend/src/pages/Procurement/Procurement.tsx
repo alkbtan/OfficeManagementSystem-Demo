@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+﻿import { useEffect, useState } from "react";
 import {
   Box,
   Typography,
@@ -18,69 +18,89 @@ import {
   Snackbar,
   Alert,
   Chip,
-  Avatar,
-  Divider,
-  LinearProgress,
-  Tooltip,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
+  Divider,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import RefreshIcon from "@mui/icons-material/Refresh";
-import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
-import CheckCircleIcon from "@mui/icons-material/CheckCircle";
-import PendingIcon from "@mui/icons-material/Pending";
-import CancelIcon from "@mui/icons-material/Cancel";
-import AttachMoneyIcon from "@mui/icons-material/AttachMoney";
-import BusinessIcon from "@mui/icons-material/Business";
-import PersonIcon from "@mui/icons-material/Person";
-import CalendarTodayIcon from "@mui/icons-material/CalendarToday";
+import CloudUploadIcon from "@mui/icons-material/CloudUpload";
+import { useTranslation } from "react-i18next";
 import { procurementService } from "../../services/procurementService";
 import type { ProcurementRequest } from "../../services/procurementService";
 
+const departments = ["QA", "Office", "HR", "IT", "Diretoria", "Secretary", "Other"];
+const floors = ["7th", "15th", "17th", "18th", "19th"];
+const projects = ["Blizzard", "Blizz", "Hearth", "BRLEF", "Diretoria", "Valkyrie"];
+const classifications = ["One-Time Payment", "Recurring Monthly Expense", "Installment Payment"];
+const paymentMethods = ["PIX", "Boleto", "Mercado Livre", "Kalunga", "Account Payment"];
+const priorities = ["Critical", "High", "Medium", "Low"];
+const statuses = [
+  "Collecting Information",
+  "Awaiting Approval",
+  "Approved",
+  "Awaiting Payment",
+  "Payment in Progress",
+  "Payment Completed",
+  "Awaiting Payment Receipt",
+  "Awaiting Delivery",
+  "Order Completed",
+  "Disregard",
+];
+
+const defaultFormData = {
+  requestNumber: "",
+  item: "",
+  itemId: "",
+  requesterName: "",
+  department: "QA",
+  floor: "17th",
+  project: "Blizzard",
+  responsible: "",
+  briefDescription: "",
+  supplier: "",
+  productLink: "",
+  unitPrice: 0,
+  quantity: 1,
+  shippingCost: 0,
+  total: 0,
+  classification: "One-Time Payment",
+  paymentMethod: "PIX",
+  priority: "Medium",
+  status: "Collecting Information",
+  formDate: new Date().toISOString().split("T")[0],
+  purchaseDeadline: "",
+  approvedBy: "",
+  approvalDate: "",
+  approvalDocumentPath: "",
+  ticketLink: "",
+  invoiceNumber: "",
+  boletoDueDate: "",
+  paymentDate: "",
+  boletoFilePath: "",
+  paymentReceiptPath: "",
+  expectedDeliveryDate: "",
+  purchaseDataFilePath: "",
+};
+
 function Procurement() {
+  const { t } = useTranslation();
   const [requests, setRequests] = useState<ProcurementRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [openDialog, setOpenDialog] = useState(false);
   const [editingRequest, setEditingRequest] = useState<ProcurementRequest | null>(null);
+  const [formData, setFormData] = useState(defaultFormData);
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
     severity: "success" as "success" | "error",
   });
-
-  // ✅ Department names as requested
-  const departments = [
-    "QA",
-    "Office",
-    "HR",
-    "IT",
-    "Diretoria",
-    "Secretary",
-    "Other"
-  ];
-
-  const [formData, setFormData] = useState({
-    requestNumber: "",
-    department: "",
-    requester: "",
-    vendor: "",
-    items: "",
-    totalAmount: 0,
-    status: "Pending",
-    priority: "Medium",
-    requestDate: "",
-    approvedBy: "",
-  });
-
-  const statuses = ["Pending", "Approved", "Rejected", "Completed"];
-  const priorities = ["Low", "Medium", "High", "Critical"];
 
   const loadData = async () => {
     try {
@@ -88,8 +108,7 @@ function Procurement() {
       const data = await procurementService.getAll();
       setRequests(data);
     } catch (error) {
-      console.error("Error loading procurement requests:", error);
-      showSnackbar("Failed to load procurement requests", "error");
+      setSnackbar({ open: true, message: t("procurement.failedLoad"), severity: "error" });
     } finally {
       setLoading(false);
     }
@@ -99,38 +118,33 @@ function Procurement() {
     loadData();
   }, []);
 
-  const showSnackbar = (message: string, severity: "success" | "error") => {
-    setSnackbar({ open: true, message, severity });
-  };
+  useEffect(() => {
+    const unitPrice = parseFloat(formData.unitPrice as any) || 0;
+    const quantity = parseFloat(formData.quantity as any) || 0;
+    const shipping = parseFloat(formData.shippingCost as any) || 0;
+    const total = unitPrice * quantity + shipping;
+    setFormData((prev) => ({ ...prev, total }));
+  }, [formData.unitPrice, formData.quantity, formData.shippingCost]);
 
   const handleOpenDialog = (request?: ProcurementRequest) => {
     if (request) {
       setEditingRequest(request);
       setFormData({
-        requestNumber: request.requestNumber || "",
-        department: request.department || "",
-        requester: request.requester || "",
-        vendor: request.vendor || "",
-        items: request.items || "",
-        totalAmount: request.totalAmount || 0,
-        status: request.status || "Pending",
-        priority: request.priority || "Medium",
-        requestDate: request.requestDate ? request.requestDate.split("T")[0] : "",
-        approvedBy: request.approvedBy || "",
+        ...request,
+        formDate: request.formDate ? request.formDate.split("T")[0] : "",
+        purchaseDeadline: request.purchaseDeadline ? request.purchaseDeadline.split("T")[0] : "",
+        approvalDate: request.approvalDate ? request.approvalDate.split("T")[0] : "",
+        boletoDueDate: request.boletoDueDate ? request.boletoDueDate.split("T")[0] : "",
+        paymentDate: request.paymentDate ? request.paymentDate.split("T")[0] : "",
+        expectedDeliveryDate: request.expectedDeliveryDate ? request.expectedDeliveryDate.split("T")[0] : "",
       });
     } else {
       setEditingRequest(null);
+      const randomSeq = Math.floor(100 + Math.random() * 900);
       setFormData({
-        requestNumber: `PR-${String(new Date().getFullYear()).slice(-2)}-${String(requests.length + 1).padStart(3, '0')}`,
-        department: "",
-        requester: "",
-        vendor: "",
-        items: "",
-        totalAmount: 0,
-        status: "Pending",
-        priority: "Medium",
-        requestDate: new Date().toISOString().split("T")[0],
-        approvedBy: "",
+        ...defaultFormData,
+        requestNumber: `PR-26-${randomSeq}`,
+        formDate: new Date().toISOString().split("T")[0],
       });
     }
     setOpenDialog(true);
@@ -141,535 +155,398 @@ function Procurement() {
     setEditingRequest(null);
   };
 
-  const handleSaveRequest = async () => {
-    if (!formData.requestNumber.trim()) {
-      showSnackbar("Request Number is required", "error");
+  const handleSave = async () => {
+    if (!formData.item.trim()) {
+      setSnackbar({ open: true, message: t("procurement.itemRequired"), severity: "error" });
       return;
     }
-    if (!formData.department) {
-      showSnackbar("Department is required", "error");
-      return;
-    }
-    if (!formData.requester.trim()) {
-      showSnackbar("Requester is required", "error");
-      return;
-    }
-    if (!formData.vendor.trim()) {
-      showSnackbar("Vendor is required", "error");
+    if (!formData.requesterName.trim()) {
+      setSnackbar({ open: true, message: t("procurement.requesterRequired"), severity: "error" });
       return;
     }
 
     try {
-      const dataToSend = {
+      const payload = {
         requestNumber: formData.requestNumber,
+        item: formData.item,
+        itemId: formData.itemId || "",
+        requesterName: formData.requesterName,
         department: formData.department,
-        requester: formData.requester,
-        vendor: formData.vendor,
-        items: formData.items || "",
-        totalAmount: Number(formData.totalAmount) || 0,
-        status: formData.status,
+        floor: formData.floor,
+        project: formData.project,
+        responsible: formData.responsible || "",
+        briefDescription: formData.briefDescription || "",
+        supplier: formData.supplier || "",
+        productLink: formData.productLink || "",
+        unitPrice: Number(formData.unitPrice) || 0,
+        quantity: Number(formData.quantity) || 0,
+        shippingCost: Number(formData.shippingCost) || 0,
+        total: Number(formData.total) || 0,
+        classification: formData.classification,
+        paymentMethod: formData.paymentMethod,
         priority: formData.priority,
-        requestDate: formData.requestDate ? new Date(formData.requestDate).toISOString() : null,
+        status: formData.status,
+        formDate: formData.formDate ? new Date(formData.formDate).toISOString() : new Date().toISOString(),
+        purchaseDeadline: formData.purchaseDeadline ? new Date(formData.purchaseDeadline).toISOString() : null,
         approvedBy: formData.approvedBy || "",
+        approvalDate: formData.approvalDate ? new Date(formData.approvalDate).toISOString() : null,
+        approvalDocumentPath: formData.approvalDocumentPath || "",
+        ticketLink: formData.ticketLink || "",
+        invoiceNumber: formData.invoiceNumber || "",
+        boletoDueDate: formData.boletoDueDate ? new Date(formData.boletoDueDate).toISOString() : null,
+        paymentDate: formData.paymentDate ? new Date(formData.paymentDate).toISOString() : null,
+        boletoFilePath: formData.boletoFilePath || "",
+        paymentReceiptPath: formData.paymentReceiptPath || "",
+        expectedDeliveryDate: formData.expectedDeliveryDate ? new Date(formData.expectedDeliveryDate).toISOString() : null,
+        purchaseDataFilePath: formData.purchaseDataFilePath || "",
       };
 
       if (editingRequest) {
-        await procurementService.update(editingRequest.id, dataToSend);
-        showSnackbar("Procurement request updated successfully!", "success");
+        await procurementService.update(editingRequest.id, payload);
+        setSnackbar({ open: true, message: t("procurement.requestUpdated"), severity: "success" });
       } else {
-        await procurementService.create(dataToSend);
-        showSnackbar("Procurement request created successfully!", "success");
+        await procurementService.create(payload);
+        setSnackbar({ open: true, message: t("procurement.requestCreated"), severity: "success" });
       }
       handleCloseDialog();
       loadData();
     } catch (error: any) {
       console.error("Error saving procurement request:", error);
-      console.error("Response:", error?.response?.data);
-      const errorMessage = error?.response?.data?.message || "Failed to save procurement request";
-      showSnackbar(errorMessage, "error");
+      const errorMessage = error?.response?.data?.message || t("procurement.failedSave");
+      setSnackbar({ open: true, message: errorMessage, severity: "error" });
     }
   };
 
-  const handleDeleteRequest = async (id: number) => {
-    if (window.confirm("Are you sure you want to delete this procurement request?")) {
+  const handleDelete = async (id: number) => {
+    if (window.confirm(t("procurement.confirmDelete"))) {
       try {
         await procurementService.delete(id);
-        showSnackbar("Procurement request deleted successfully!", "success");
+        setSnackbar({ open: true, message: t("procurement.requestDeleted"), severity: "success" });
         loadData();
       } catch (error) {
-        console.error("Error deleting procurement request:", error);
-        showSnackbar("Failed to delete procurement request", "error");
+        setSnackbar({ open: true, message: t("procurement.failedDelete"), severity: "error" });
       }
     }
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "Approved": return <CheckCircleIcon sx={{ fontSize: 20 }} />;
-      case "Completed": return <CheckCircleIcon sx={{ fontSize: 20 }} />;
-      case "Rejected": return <CancelIcon sx={{ fontSize: 20 }} />;
-      default: return <PendingIcon sx={{ fontSize: 20 }} />;
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "Approved": return "#4caf50";
-      case "Completed": return "#2196f3";
-      case "Rejected": return "#f44336";
-      default: return "#ff9800";
-    }
-  };
-
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case "Critical": return "#d32f2f";
-      case "High": return "#f44336";
-      case "Medium": return "#ff9800";
-      default: return "#9e9e9e";
-    }
-  };
-
-  const getTotalAmount = () => {
-    return requests.reduce((sum, req) => sum + req.totalAmount, 0);
-  };
-
-  const getStatusCount = (status: string) => {
-    return requests.filter(req => req.status === status).length;
-  };
+  const totalSpend = requests.reduce((sum, item) => sum + (item.total || 0), 0);
 
   if (loading) {
     return (
-      <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "60vh" }}>
-        <CircularProgress size={60} />
+      <Box sx={{ display: "flex", justifyContent: "center", py: 8 }}>
+        <CircularProgress />
       </Box>
     );
   }
 
   return (
-    <Box sx={{ p: 3, bgcolor: "#f5f7fa", minHeight: "100vh" }}>
-      {/* Header */}
-      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 4 }}>
+    <Box sx={{ p: 3 }}>
+      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
         <Box>
-          <Typography variant="h4" sx={{ fontWeight: 700, color: "#1a237e" }}>
-            🛒 Procurement Management
+          <Typography variant="h4" sx={{ fontWeight: "bold", color: "#1a237e" }}>
+            🛒 {t("procurement.title")}
           </Typography>
-          <Typography sx={{ color: "#666", mt: 0.5 }}>
-            Manage purchase requests and procurement activities
+          <Typography sx={{ color: "text.secondary" }}>
+            {t("procurement.subtitle")}
           </Typography>
         </Box>
         <Box sx={{ display: "flex", gap: 2 }}>
-          <Button
-            variant="outlined"
-            startIcon={<RefreshIcon />}
-            onClick={loadData}
-            sx={{ borderRadius: 2, textTransform: "none" }}
-          >
-            Refresh
+          <Button variant="outlined" startIcon={<RefreshIcon />} onClick={loadData}>
+            {t("common.refresh")}
           </Button>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => handleOpenDialog()}
-            sx={{
-              borderRadius: 2,
-              textTransform: "none",
-              bgcolor: "#1a237e",
-              "&:hover": { bgcolor: "#0d1445" },
-            }}
-          >
-            New Request
+          <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpenDialog()}>
+            {t("procurement.newRequest")}
           </Button>
         </Box>
       </Box>
 
-      {/* Statistics Cards */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ borderRadius: 3, boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}>
+        <Grid item xs={12} sm={6}>
+          <Card sx={{ bgcolor: "#ffffff", border: "1px solid #e0e0e0", borderRadius: 2 }}>
             <CardContent>
-              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <Box>
-                  <Typography variant="body2" sx={{ color: "#666", fontWeight: 500 }}>
-                    Total Requests
-                  </Typography>
-                  <Typography variant="h4" sx={{ fontWeight: 700, color: "#1a237e", mt: 0.5 }}>
-                    {requests.length}
-                  </Typography>
-                </Box>
-                <Avatar sx={{ bgcolor: "#e8eaf6", width: 48, height: 48 }}>
-                  <ShoppingCartIcon sx={{ color: "#1a237e" }} />
-                </Avatar>
-              </Box>
+              <Typography variant="body2" sx={{ color: "text.secondary", fontWeight: "bold" }}>
+                {t("procurement.totalRequests")}
+              </Typography>
+              <Typography variant="h4" sx={{ fontWeight: "bold", mt: 1, color: "#1a237e" }}>
+                {requests.length}
+              </Typography>
             </CardContent>
           </Card>
         </Grid>
-
-        <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ borderRadius: 3, boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}>
+        <Grid item xs={12} sm={6}>
+          <Card sx={{ bgcolor: "#ffffff", border: "1px solid #e0e0e0", borderRadius: 2 }}>
             <CardContent>
-              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <Box>
-                  <Typography variant="body2" sx={{ color: "#666", fontWeight: 500 }}>
-                    Pending
-                  </Typography>
-                  <Typography variant="h4" sx={{ fontWeight: 700, color: "#ff9800", mt: 0.5 }}>
-                    {getStatusCount("Pending")}
-                  </Typography>
-                </Box>
-                <Avatar sx={{ bgcolor: "#fff3e0", width: 48, height: 48 }}>
-                  <PendingIcon sx={{ color: "#ff9800" }} />
-                </Avatar>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ borderRadius: 3, boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}>
-            <CardContent>
-              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <Box>
-                  <Typography variant="body2" sx={{ color: "#666", fontWeight: 500 }}>
-                    Approved
-                  </Typography>
-                  <Typography variant="h4" sx={{ fontWeight: 700, color: "#4caf50", mt: 0.5 }}>
-                    {getStatusCount("Approved")}
-                  </Typography>
-                </Box>
-                <Avatar sx={{ bgcolor: "#e8f5e9", width: 48, height: 48 }}>
-                  <CheckCircleIcon sx={{ color: "#4caf50" }} />
-                </Avatar>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ borderRadius: 3, boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}>
-            <CardContent>
-              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <Box>
-                  <Typography variant="body2" sx={{ color: "#666", fontWeight: 500 }}>
-                    Total Amount
-                  </Typography>
-                  <Typography variant="h4" sx={{ fontWeight: 700, color: "#1a237e", mt: 0.5 }}>
-                    R$ {getTotalAmount().toFixed(2)}
-                  </Typography>
-                </Box>
-                <Avatar sx={{ bgcolor: "#e8eaf6", width: 48, height: 48 }}>
-                  <AttachMoneyIcon sx={{ color: "#1a237e" }} />
-                </Avatar>
-              </Box>
+              <Typography variant="body2" sx={{ color: "text.secondary", fontWeight: "bold" }}>
+                {t("procurement.totalAmount")}
+              </Typography>
+              <Typography variant="h4" sx={{ fontWeight: "bold", mt: 1, color: "#2e7d32" }}>
+                R$ {totalSpend.toFixed(2)}
+              </Typography>
             </CardContent>
           </Card>
         </Grid>
       </Grid>
 
-      {/* Table View */}
-      <Paper sx={{ borderRadius: 3, overflow: "hidden", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}>
-        {requests.length === 0 ? (
-          <Box sx={{ p: 6, textAlign: "center" }}>
-            <ShoppingCartIcon sx={{ fontSize: 64, color: "#ccc", mb: 2 }} />
-            <Typography variant="h6" sx={{ color: "#666" }}>
-              No procurement requests found
-            </Typography>
-            <Typography variant="body2" sx={{ color: "#999", mt: 1 }}>
-              Click the "New Request" button to create your first procurement request.
-            </Typography>
-          </Box>
-        ) : (
-          <TableContainer>
-            <Table>
-              <TableHead sx={{ bgcolor: "#f5f7fa" }}>
+      <Paper sx={{ borderRadius: 2, overflow: "hidden", border: "1px solid #e0e0e0" }}>
+        <TableContainer>
+          <Table>
+            <TableHead sx={{ bgcolor: "#f5f5f5" }}>
+              <TableRow>
+                <TableCell sx={{ fontWeight: "bold" }}>{t("procurement.requestNumber")}</TableCell>
+                <TableCell sx={{ fontWeight: "bold" }}>{t("procurement.item")}</TableCell>
+                <TableCell sx={{ fontWeight: "bold" }}>{t("procurement.requesterName")}</TableCell>
+                <TableCell sx={{ fontWeight: "bold" }}>{t("procurement.department")}</TableCell>
+                <TableCell sx={{ fontWeight: "bold" }}>{t("procurement.floor")}</TableCell>
+                <TableCell sx={{ fontWeight: "bold" }}>{t("procurement.total")}</TableCell>
+                <TableCell sx={{ fontWeight: "bold" }}>{t("procurement.status")}</TableCell>
+                <TableCell sx={{ fontWeight: "bold" }}>{t("procurement.priority")}</TableCell>
+                <TableCell sx={{ fontWeight: "bold" }} align="center">{t("common.actions")}</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {requests.length === 0 ? (
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 600, color: "#1a237e" }}>Request #</TableCell>
-                  <TableCell sx={{ fontWeight: 600, color: "#1a237e" }}>Department</TableCell>
-                  <TableCell sx={{ fontWeight: 600, color: "#1a237e" }}>Requester</TableCell>
-                  <TableCell sx={{ fontWeight: 600, color: "#1a237e" }}>Vendor</TableCell>
-                  <TableCell sx={{ fontWeight: 600, color: "#1a237e" }}>Items</TableCell>
-                  <TableCell sx={{ fontWeight: 600, color: "#1a237e" }}>Amount</TableCell>
-                  <TableCell sx={{ fontWeight: 600, color: "#1a237e" }}>Status</TableCell>
-                  <TableCell sx={{ fontWeight: 600, color: "#1a237e" }}>Priority</TableCell>
-                  <TableCell sx={{ fontWeight: 600, color: "#1a237e" }}>Actions</TableCell>
+                  <TableCell colSpan={9} align="center" sx={{ py: 3, color: "text.secondary" }}>
+                    {t("procurement.noRequests")}
+                  </TableCell>
                 </TableRow>
-              </TableHead>
-              <TableBody>
-                {requests.map((req) => (
-                  <TableRow key={req.id} sx={{ "&:hover": { bgcolor: "#f8f9ff" } }}>
-                    <TableCell>
-                      <Typography sx={{ fontWeight: 600, color: "#1a237e" }}>
-                        {req.requestNumber}
-                      </Typography>
-                      {req.requestDate && (
-                        <Typography variant="caption" sx={{ color: "#999", display: "block" }}>
-                          {new Date(req.requestDate).toLocaleDateString()}
-                        </Typography>
-                      )}
+              ) : (
+                requests.map((req) => (
+                  <TableRow key={req.id} hover>
+                    <TableCell sx={{ fontWeight: "bold" }}>{req.requestNumber}</TableCell>
+                    <TableCell>{req.item}</TableCell>
+                    <TableCell>{req.requesterName}</TableCell>
+                    <TableCell>{req.department}</TableCell>
+                    <TableCell>{req.floor}</TableCell>
+                    <TableCell sx={{ fontWeight: "bold", color: "#1a237e" }}>
+                      R$ {req.total?.toFixed(2)}
                     </TableCell>
                     <TableCell>
-                      <Chip
-                        label={req.department}
-                        size="small"
-                        sx={{
-                          bgcolor: "#e8eaf6",
-                          color: "#1a237e",
-                          fontWeight: 500,
-                          borderRadius: 2,
-                        }}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                        <PersonIcon sx={{ fontSize: 16, color: "#999" }} />
-                        <Typography variant="body2">{req.requester}</Typography>
-                      </Box>
-                    </TableCell>
-                    <TableCell>
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                        <BusinessIcon sx={{ fontSize: 16, color: "#999" }} />
-                        <Typography variant="body2">{req.vendor}</Typography>
-                      </Box>
-                    </TableCell>
-                    <TableCell>
-                      <Tooltip title={req.items}>
-                        <Typography
-                          variant="body2"
-                          sx={{
-                            maxWidth: 120,
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {req.items}
-                        </Typography>
-                      </Tooltip>
-                    </TableCell>
-                    <TableCell>
-                      <Typography sx={{ fontWeight: 600, color: "#1a237e" }}>
-                        R$ {req.totalAmount.toFixed(2)}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        icon={getStatusIcon(req.status)}
-                        label={req.status}
-                        size="small"
-                        sx={{
-                          bgcolor: `${getStatusColor(req.status)}15`,
-                          color: getStatusColor(req.status),
-                          fontWeight: 500,
-                          borderRadius: 2,
-                          "& .MuiChip-icon": { color: getStatusColor(req.status) },
-                        }}
-                      />
+                      <Chip label={req.status} size="small" color="primary" variant="outlined" />
                     </TableCell>
                     <TableCell>
                       <Chip
                         label={req.priority}
                         size="small"
-                        sx={{
-                          bgcolor: `${getPriorityColor(req.priority)}15`,
-                          color: getPriorityColor(req.priority),
-                          fontWeight: 500,
-                          borderRadius: 2,
-                        }}
+                        color={
+                          req.priority === "Critical"
+                            ? "error"
+                            : req.priority === "High"
+                            ? "warning"
+                            : "default"
+                        }
                       />
                     </TableCell>
-                    <TableCell>
-                      <Box sx={{ display: "flex", gap: 1 }}>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleOpenDialog(req)}
-                          sx={{
-                            color: "#1a237e",
-                            bgcolor: "#e8eaf6",
-                            "&:hover": { bgcolor: "#c5cae9" },
-                          }}
-                        >
-                          <EditIcon fontSize="small" />
-                        </IconButton>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleDeleteRequest(req.id)}
-                          sx={{
-                            color: "#f44336",
-                            bgcolor: "#ffebee",
-                            "&:hover": { bgcolor: "#ffcdd2" },
-                          }}
-                        >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </Box>
+                    <TableCell align="center">
+                      <IconButton size="small" color="primary" onClick={() => handleOpenDialog(req)}>
+                        <EditIcon fontSize="small" />
+                      </IconButton>
+                      <IconButton size="small" color="error" onClick={() => handleDelete(req.id)}>
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
                     </TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        )}
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
       </Paper>
 
-      {/* Add/Edit Dialog */}
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ bgcolor: "#1a237e", color: "white" }}>
-          {editingRequest ? "✏️ Edit Procurement Request" : "➕ New Procurement Request"}
+        <DialogTitle sx={{ bgcolor: "#1a237e", color: "white", fontWeight: "bold" }}>
+          {editingRequest ? t("procurement.editRequest") : t("procurement.newRequest")}
         </DialogTitle>
         <DialogContent sx={{ mt: 2 }}>
-          <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Request Number"
-                  fullWidth
-                  required
-                  placeholder="e.g. PR-2026-001"
-                  value={formData.requestNumber}
-                  onChange={(e) => setFormData({ ...formData, requestNumber: e.target.value })}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  select
-                  label="Department"
-                  fullWidth
-                  required
-                  value={formData.department}
-                  onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                >
-                  {departments.map((dept) => (
-                    <MenuItem key={dept} value={dept}>{dept}</MenuItem>
-                  ))}
-                </TextField>
-              </Grid>
-            </Grid>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 3, mt: 1 }}>
 
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Requester"
-                  fullWidth
-                  required
-                  value={formData.requester}
-                  onChange={(e) => setFormData({ ...formData, requester: e.target.value })}
-                />
+            <Box>
+              <Typography variant="subtitle1" sx={{ fontWeight: "bold", color: "#1a237e", mb: 1.5 }}>
+                {t("procurement.section1")}
+              </Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <TextField label={t("procurement.requestNumber")} fullWidth disabled value={formData.requestNumber} helperText={t("procurement.requestNumberHelper")} />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField label={`${t("procurement.item")} *`} fullWidth required value={formData.item} onChange={(e) => setFormData({ ...formData, item: e.target.value })} />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField label={t("procurement.itemId")} fullWidth value={formData.itemId} onChange={(e) => setFormData({ ...formData, itemId: e.target.value })} />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField label={`${t("procurement.requesterName")} *`} fullWidth required value={formData.requesterName} onChange={(e) => setFormData({ ...formData, requesterName: e.target.value })} />
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <TextField select label={t("procurement.department")} fullWidth value={formData.department} onChange={(e) => setFormData({ ...formData, department: e.target.value })}>
+                    {departments.map((dept) => (<MenuItem key={dept} value={dept}>{dept}</MenuItem>))}
+                  </TextField>
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <TextField select label={t("procurement.floor")} fullWidth value={formData.floor} onChange={(e) => setFormData({ ...formData, floor: e.target.value })}>
+                    {floors.map((fl) => (<MenuItem key={fl} value={fl}>{fl}</MenuItem>))}
+                  </TextField>
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <TextField select label={t("procurement.project")} fullWidth value={formData.project} onChange={(e) => setFormData({ ...formData, project: e.target.value })}>
+                    {projects.map((proj) => (<MenuItem key={proj} value={proj}>{proj}</MenuItem>))}
+                  </TextField>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField label={t("procurement.responsible")} fullWidth placeholder={t("procurement.responsiblePlaceholder")} value={formData.responsible} onChange={(e) => setFormData({ ...formData, responsible: e.target.value })} />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField label={t("procurement.briefDescription")} fullWidth value={formData.briefDescription} onChange={(e) => setFormData({ ...formData, briefDescription: e.target.value })} />
+                </Grid>
               </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Vendor"
-                  fullWidth
-                  required
-                  value={formData.vendor}
-                  onChange={(e) => setFormData({ ...formData, vendor: e.target.value })}
-                />
-              </Grid>
-            </Grid>
+            </Box>
 
-            <TextField
-              label="Items Description"
-              fullWidth
-              multiline
-              rows={2}
-              placeholder="Describe the items to be procured..."
-              value={formData.items}
-              onChange={(e) => setFormData({ ...formData, items: e.target.value })}
-            />
+            <Divider />
 
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Total Amount (R$)"
-                  type="number"
-                  fullWidth
-                  value={formData.totalAmount}
-                  onChange={(e) => setFormData({ ...formData, totalAmount: Number(e.target.value) })}
-                  InputProps={{
-                    startAdornment: <Typography sx={{ mr: 1, color: "#999" }}>R$</Typography>,
-                  }}
-                />
+            <Box>
+              <Typography variant="subtitle1" sx={{ fontWeight: "bold", color: "#1a237e", mb: 1.5 }}>
+                {t("procurement.section2")}
+              </Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <TextField label={t("procurement.supplier")} fullWidth value={formData.supplier} onChange={(e) => setFormData({ ...formData, supplier: e.target.value })} />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField label={t("procurement.productLink")} fullWidth value={formData.productLink} onChange={(e) => setFormData({ ...formData, productLink: e.target.value })} />
+                </Grid>
+                <Grid item xs={12} sm={3}>
+                  <TextField label={t("procurement.unitPrice")} type="number" fullWidth value={formData.unitPrice} onChange={(e) => setFormData({ ...formData, unitPrice: Number(e.target.value) })} />
+                </Grid>
+                <Grid item xs={12} sm={3}>
+                  <TextField label={t("procurement.quantity")} type="number" fullWidth value={formData.quantity} onChange={(e) => setFormData({ ...formData, quantity: Number(e.target.value) })} />
+                </Grid>
+                <Grid item xs={12} sm={3}>
+                  <TextField label={t("procurement.shippingCost")} type="number" fullWidth value={formData.shippingCost} onChange={(e) => setFormData({ ...formData, shippingCost: Number(e.target.value) })} />
+                </Grid>
+                <Grid item xs={12} sm={3}>
+                  <TextField label={t("procurement.total")} fullWidth disabled value={`R$ ${formData.total.toFixed(2)}`} helperText={t("procurement.totalHelper")} />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField select label={t("procurement.classification")} fullWidth value={formData.classification} onChange={(e) => setFormData({ ...formData, classification: e.target.value })}>
+                    {classifications.map((cl) => (<MenuItem key={cl} value={cl}>{cl}</MenuItem>))}
+                  </TextField>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField select label={t("procurement.paymentMethod")} fullWidth value={formData.paymentMethod} onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value })}>
+                    {paymentMethods.map((pm) => (<MenuItem key={pm} value={pm}>{pm}</MenuItem>))}
+                  </TextField>
+                </Grid>
               </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Request Date"
-                  type="date"
-                  fullWidth
-                  value={formData.requestDate}
-                  onChange={(e) => setFormData({ ...formData, requestDate: e.target.value })}
-                  InputLabelProps={{ shrink: true }}
-                />
-              </Grid>
-            </Grid>
+            </Box>
 
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  select
-                  label="Status"
-                  fullWidth
-                  value={formData.status}
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                >
-                  {statuses.map((status) => (
-                    <MenuItem key={status} value={status}>{status}</MenuItem>
-                  ))}
-                </TextField>
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  select
-                  label="Priority"
-                  fullWidth
-                  value={formData.priority}
-                  onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
-                >
-                  {priorities.map((priority) => (
-                    <MenuItem key={priority} value={priority}>{priority}</MenuItem>
-                  ))}
-                </TextField>
-              </Grid>
-            </Grid>
+            <Divider />
 
-            <TextField
-              label="Approved By"
-              fullWidth
-              placeholder="Name of the approver"
-              value={formData.approvedBy}
-              onChange={(e) => setFormData({ ...formData, approvedBy: e.target.value })}
-            />
+            <Box>
+              <Typography variant="subtitle1" sx={{ fontWeight: "bold", color: "#1a237e", mb: 1.5 }}>
+                {t("procurement.section3")}
+              </Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={4}>
+                  <TextField select label={t("procurement.priority")} fullWidth value={formData.priority} onChange={(e) => setFormData({ ...formData, priority: e.target.value })}>
+                    {priorities.map((pr) => (<MenuItem key={pr} value={pr}>{pr}</MenuItem>))}
+                  </TextField>
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <TextField select label={t("procurement.status")} fullWidth value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value })}>
+                    {statuses.map((st) => (<MenuItem key={st} value={st}>{st}</MenuItem>))}
+                  </TextField>
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <TextField label={t("procurement.formDate")} type="date" fullWidth value={formData.formDate} onChange={(e) => setFormData({ ...formData, formDate: e.target.value })} InputLabelProps={{ shrink: true }} />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField label={t("procurement.purchaseDeadline")} type="date" fullWidth value={formData.purchaseDeadline} onChange={(e) => setFormData({ ...formData, purchaseDeadline: e.target.value })} InputLabelProps={{ shrink: true }} />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField label={t("procurement.ticketLink")} fullWidth placeholder={t("procurement.ticketLinkPlaceholder")} value={formData.ticketLink} onChange={(e) => setFormData({ ...formData, ticketLink: e.target.value })} />
+                </Grid>
+              </Grid>
+            </Box>
+
+            <Divider />
+
+            <Box>
+              <Typography variant="subtitle1" sx={{ fontWeight: "bold", color: "#1a237e", mb: 1.5 }}>
+                {t("procurement.section4")}
+              </Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={4}>
+                  <TextField label={t("procurement.approvedBy")} fullWidth value={formData.approvedBy} onChange={(e) => setFormData({ ...formData, approvedBy: e.target.value })} />
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <TextField label={t("procurement.approvalDate")} type="date" fullWidth value={formData.approvalDate} onChange={(e) => setFormData({ ...formData, approvalDate: e.target.value })} InputLabelProps={{ shrink: true }} />
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <TextField label={t("procurement.approvalDocument")} fullWidth placeholder={t("procurement.approvalDocumentPlaceholder")} value={formData.approvalDocumentPath} onChange={(e) => setFormData({ ...formData, approvalDocumentPath: e.target.value })} InputProps={{ endAdornment: (<IconButton component="label" size="small"><CloudUploadIcon /><input type="file" hidden onChange={(e) => { if (e.target.files?.[0]) setFormData({ ...formData, approvalDocumentPath: e.target.files[0].name }); }} /></IconButton>) }} />
+                </Grid>
+              </Grid>
+            </Box>
+
+            <Divider />
+
+            <Box>
+              <Typography variant="subtitle1" sx={{ fontWeight: "bold", color: "#1a237e", mb: 1.5 }}>
+                {t("procurement.section5")}
+              </Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={4}>
+                  <TextField label={t("procurement.invoiceNumber")} fullWidth value={formData.invoiceNumber} onChange={(e) => setFormData({ ...formData, invoiceNumber: e.target.value })} />
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <TextField label={t("procurement.boletoDueDate")} type="date" fullWidth value={formData.boletoDueDate} onChange={(e) => setFormData({ ...formData, boletoDueDate: e.target.value })} InputLabelProps={{ shrink: true }} />
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                  <TextField label={t("procurement.paymentDate")} type="date" fullWidth value={formData.paymentDate} onChange={(e) => setFormData({ ...formData, paymentDate: e.target.value })} InputLabelProps={{ shrink: true }} />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField label={t("procurement.boletoFile")} fullWidth placeholder={t("procurement.boletoFilePlaceholder")} value={formData.boletoFilePath} onChange={(e) => setFormData({ ...formData, boletoFilePath: e.target.value })} InputProps={{ endAdornment: (<IconButton component="label" size="small"><CloudUploadIcon /><input type="file" hidden onChange={(e) => { if (e.target.files?.[0]) setFormData({ ...formData, boletoFilePath: e.target.files[0].name }); }} /></IconButton>) }} />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField label={t("procurement.paymentReceipt")} fullWidth placeholder={t("procurement.paymentReceiptPlaceholder")} value={formData.paymentReceiptPath} onChange={(e) => setFormData({ ...formData, paymentReceiptPath: e.target.value })} InputProps={{ endAdornment: (<IconButton component="label" size="small"><CloudUploadIcon /><input type="file" hidden onChange={(e) => { if (e.target.files?.[0]) setFormData({ ...formData, paymentReceiptPath: e.target.files[0].name }); }} /></IconButton>) }} />
+                </Grid>
+              </Grid>
+            </Box>
+
+            <Divider />
+
+            <Box>
+              <Typography variant="subtitle1" sx={{ fontWeight: "bold", color: "#1a237e", mb: 1.5 }}>
+                {t("procurement.section6")}
+              </Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <TextField label={t("procurement.expectedDeliveryDate")} type="date" fullWidth value={formData.expectedDeliveryDate} onChange={(e) => setFormData({ ...formData, expectedDeliveryDate: e.target.value })} InputLabelProps={{ shrink: true }} />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField label={t("procurement.purchaseDataFile")} fullWidth placeholder={t("procurement.purchaseDataFilePlaceholder")} value={formData.purchaseDataFilePath} onChange={(e) => setFormData({ ...formData, purchaseDataFilePath: e.target.value })} InputProps={{ endAdornment: (<IconButton component="label" size="small"><CloudUploadIcon /><input type="file" hidden onChange={(e) => { if (e.target.files?.[0]) setFormData({ ...formData, purchaseDataFilePath: e.target.files[0].name }); }} /></IconButton>) }} />
+                </Grid>
+              </Grid>
+            </Box>
+
           </Box>
         </DialogContent>
-        <DialogActions sx={{ p: 3, gap: 1 }}>
-          <Button onClick={handleCloseDialog} variant="outlined" color="inherit" sx={{ borderRadius: 2, textTransform: "none" }}>
-            Cancel
+        <DialogActions sx={{ p: 2.5, gap: 1 }}>
+          <Button onClick={handleCloseDialog} variant="outlined" color="inherit">
+            {t("common.cancel")}
           </Button>
-          <Button
-            variant="contained"
-            onClick={handleSaveRequest}
-            sx={{
-              borderRadius: 2,
-              textTransform: "none",
-              bgcolor: "#1a237e",
-              "&:hover": { bgcolor: "#0d1445" },
-            }}
-          >
-            {editingRequest ? "Update Request" : "Create Request"}
+          <Button variant="contained" onClick={handleSave} sx={{ bgcolor: "#1a237e" }}>
+            {editingRequest ? t("procurement.updateRequest") : t("procurement.createRequest")}
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* Snackbar */}
       <Snackbar
         open={snackbar.open}
-        autoHideDuration={4000}
+        autoHideDuration={3000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
       >
-        <Alert
-          severity={snackbar.severity}
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
-          sx={{ borderRadius: 2 }}
-        >
+        <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })}>
           {snackbar.message}
         </Alert>
       </Snackbar>
