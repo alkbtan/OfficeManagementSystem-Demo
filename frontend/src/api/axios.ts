@@ -1,5 +1,4 @@
 import axios from "axios";
-import i18n from "../i18n";
 
 const api = axios.create({
   baseURL: "http://localhost:5149/api",
@@ -28,6 +27,21 @@ api.interceptors.request.use(
   }
 );
 
+// Get current language and forbidden message
+const getForbiddenMessage = (): string => {
+  const lang = localStorage.getItem("language") || "en";
+  return lang === "pt"
+    ? "Você não tem permissão para fazer isso"
+    : "You don't have permission to do this";
+};
+
+const getNetworkErrorMessage = (): string => {
+  const lang = localStorage.getItem("language") || "en";
+  return lang === "pt"
+    ? "Erro de rede - verifique se o backend está em execução"
+    : "Network error - please check if backend is running";
+};
+
 // Handle error responses
 api.interceptors.response.use(
   (response) => response,
@@ -35,9 +49,7 @@ api.interceptors.response.use(
     // Network error
     if (!error.response) {
       console.error("Network error - please check if backend is running");
-      return Promise.reject(
-        new Error(i18n.t("errors.network"))
-      );
+      return Promise.reject(new Error(getNetworkErrorMessage()));
     }
 
     const status = error.response.status;
@@ -52,7 +64,7 @@ api.interceptors.response.use(
     // 403 Forbidden → permission message
     if (status === 403) {
       error.response.data = {
-        message: i18n.t("errors.forbidden"),
+        message: getForbiddenMessage(),
       };
     }
 

@@ -9,11 +9,13 @@ import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import { useTranslation } from "react-i18next";
+import { useUserPermissions } from "../../hooks/useUserPermissions";
 import { ticketService } from "../../services/ticketService";
 import type { Ticket } from "../../services/ticketService";
 
 function Maintenance() {
   const { t } = useTranslation();
+  const { canDelete, canEdit } = useUserPermissions();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [openDialog, setOpenDialog] = useState(false);
@@ -89,10 +91,10 @@ function Maintenance() {
       };
 
       if (editingTicket) {
-        await ticketService.update(editingTicket.id, dataToSend);
+        await ticketService.update(editingTicket.id, dataToSend as any);
         showSnackbar(t("common.success"), "success");
       } else {
-        await ticketService.create(dataToSend);
+        await ticketService.create(dataToSend as any);
         showSnackbar(t("common.success"), "success");
       }
       handleCloseDialog();
@@ -110,9 +112,10 @@ function Maintenance() {
         await ticketService.delete(id);
         showSnackbar(t("common.success"), "success");
         loadData();
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error deleting ticket:", error);
-        showSnackbar(t("common.error"), "error");
+        const errorMessage = error?.response?.data?.message || t("common.error");
+        showSnackbar(errorMessage, "error");
       }
     }
   };
@@ -179,8 +182,16 @@ function Maintenance() {
                       <Chip label={ticket.priority} size="small" color={getPriorityColor(ticket.priority) as any} sx={{ mt: 0.5, ml: 0.5 }} />
                     </Box>
                     <Box>
-                      <IconButton size="small" color="primary" onClick={() => handleOpenDialog(ticket)}><EditIcon /></IconButton>
-                      <IconButton size="small" color="error" onClick={() => handleDeleteTicket(ticket.id)}><DeleteIcon /></IconButton>
+                      {canEdit(ticket.createdBy) && (
+                        <IconButton size="small" color="primary" onClick={() => handleOpenDialog(ticket)}>
+                          <EditIcon />
+                        </IconButton>
+                      )}
+                      {canDelete(ticket.createdBy) && (
+                        <IconButton size="small" color="error" onClick={() => handleDeleteTicket(ticket.id)}>
+                          <DeleteIcon />
+                        </IconButton>
+                      )}
                     </Box>
                   </Box>
 

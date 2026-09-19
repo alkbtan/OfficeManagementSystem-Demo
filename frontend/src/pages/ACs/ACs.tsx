@@ -9,11 +9,13 @@ import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import { useTranslation } from "react-i18next";
+import { useUserPermissions } from "../../hooks/useUserPermissions";
 import { acService } from "../../services/acService";
 import type { AirConditioner } from "../../services/acService";
 
 function ACs() {
   const { t } = useTranslation();
+  const { canDelete, canEdit } = useUserPermissions();
   const [units, setUnits] = useState<AirConditioner[]>([]);
   const [loading, setLoading] = useState(true);
   const [openDialog, setOpenDialog] = useState(false);
@@ -93,10 +95,10 @@ function ACs() {
       };
 
       if (editingUnit) {
-        await acService.update(editingUnit.id, dataToSend);
+        await acService.update(editingUnit.id, dataToSend as any);
         showSnackbar(t("common.success"), "success");
       } else {
-        await acService.create(dataToSend);
+        await acService.create(dataToSend as any);
         showSnackbar(t("common.success"), "success");
       }
       handleCloseDialog();
@@ -114,9 +116,10 @@ function ACs() {
         await acService.delete(id);
         showSnackbar(t("common.success"), "success");
         loadData();
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error deleting AC unit:", error);
-        showSnackbar(t("common.error"), "error");
+        const errorMessage = error?.response?.data?.message || t("common.error");
+        showSnackbar(errorMessage, "error");
       }
     }
   };
@@ -174,8 +177,16 @@ function ACs() {
                       <Chip label={unit.status} size="small" color={getStatusColor(unit.status) as any} sx={{ mt: 0.5 }} />
                     </Box>
                     <Box>
-                      <IconButton size="small" color="primary" onClick={() => handleOpenDialog(unit)}><EditIcon /></IconButton>
-                      <IconButton size="small" color="error" onClick={() => handleDeleteUnit(unit.id)}><DeleteIcon /></IconButton>
+                      {canEdit(unit.createdBy) && (
+                        <IconButton size="small" color="primary" onClick={() => handleOpenDialog(unit)}>
+                          <EditIcon />
+                        </IconButton>
+                      )}
+                      {canDelete(unit.createdBy) && (
+                        <IconButton size="small" color="error" onClick={() => handleDeleteUnit(unit.id)}>
+                          <DeleteIcon />
+                        </IconButton>
+                      )}
                     </Box>
                   </Box>
 

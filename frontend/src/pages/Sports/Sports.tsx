@@ -9,11 +9,13 @@ import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import { useTranslation } from "react-i18next";
+import { useUserPermissions } from "../../hooks/useUserPermissions";
 import { sportService } from "../../services/sportService";
 import type { Sport } from "../../services/sportService";
 
 function Sports() {
   const { t } = useTranslation();
+  const { canDelete, canEdit } = useUserPermissions();
   const [sports, setSports] = useState<Sport[]>([]);
   const [loading, setLoading] = useState(true);
   const [openDialog, setOpenDialog] = useState(false);
@@ -84,10 +86,10 @@ function Sports() {
       };
 
       if (editingSport) {
-        await sportService.update(editingSport.id, dataToSend);
+        await sportService.update(editingSport.id, dataToSend as any);
         showSnackbar(t("common.success"), "success");
       } else {
-        await sportService.create(dataToSend);
+        await sportService.create(dataToSend as any);
         showSnackbar(t("common.success"), "success");
       }
       handleCloseDialog();
@@ -105,9 +107,10 @@ function Sports() {
         await sportService.delete(id);
         showSnackbar(t("common.success"), "success");
         loadData();
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error deleting sport:", error);
-        showSnackbar(t("common.error"), "error");
+        const errorMessage = error?.response?.data?.message || t("common.error");
+        showSnackbar(errorMessage, "error");
       }
     }
   };
@@ -165,8 +168,16 @@ function Sports() {
                       <Chip label={sport.status} size="small" color={getStatusColor(sport.status) as any} sx={{ mt: 0.5 }} />
                     </Box>
                     <Box>
-                      <IconButton size="small" color="primary" onClick={() => handleOpenDialog(sport)}><EditIcon /></IconButton>
-                      <IconButton size="small" color="error" onClick={() => handleDeleteSport(sport.id)}><DeleteIcon /></IconButton>
+                      {canEdit(sport.createdBy) && (
+                        <IconButton size="small" color="primary" onClick={() => handleOpenDialog(sport)}>
+                          <EditIcon />
+                        </IconButton>
+                      )}
+                      {canDelete(sport.createdBy) && (
+                        <IconButton size="small" color="error" onClick={() => handleDeleteSport(sport.id)}>
+                          <DeleteIcon />
+                        </IconButton>
+                      )}
                     </Box>
                   </Box>
 

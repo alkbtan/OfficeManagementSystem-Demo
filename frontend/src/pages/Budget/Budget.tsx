@@ -10,11 +10,13 @@ import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import { useTranslation } from "react-i18next";
+import { useUserPermissions } from "../../hooks/useUserPermissions";
 import { budgetService } from "../../services/budgetService";
 import type { Budget as BudgetModel, BudgetSummary } from "../../services/budgetService";
 
 function BudgetPage() {
   const { t } = useTranslation();
+  const { canDelete, canEdit } = useUserPermissions();
   const [budgets, setBudgets] = useState<BudgetModel[]>([]);
   const [summary, setSummary] = useState<BudgetSummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -74,8 +76,9 @@ function BudgetPage() {
       }
       handleCloseDialog();
       loadData();
-    } catch (error) {
-      setSnackbar({ open: true, message: t("common.error"), severity: "error" });
+    } catch (error: any) {
+      const errorMessage = error?.response?.data?.message || t("common.error");
+      setSnackbar({ open: true, message: errorMessage, severity: "error" });
     }
   };
 
@@ -85,8 +88,9 @@ function BudgetPage() {
         await budgetService.delete(id);
         setSnackbar({ open: true, message: t("common.success"), severity: "success" });
         loadData();
-      } catch (error) {
-        setSnackbar({ open: true, message: t("common.error"), severity: "error" });
+      } catch (error: any) {
+        const errorMessage = error?.response?.data?.message || t("common.error");
+        setSnackbar({ open: true, message: errorMessage, severity: "error" });
       }
     }
   };
@@ -167,12 +171,20 @@ function BudgetPage() {
                     R$ {(b.planned - b.spent).toFixed(2)}
                   </TableCell>
                   <TableCell align="center">
-                    <Tooltip title={t("common.edit")}>
-                      <IconButton size="small" color="primary" onClick={() => handleOpenDialog(b)}><EditIcon fontSize="small" /></IconButton>
-                    </Tooltip>
-                    <Tooltip title={t("common.delete")}>
-                      <IconButton size="small" color="error" onClick={() => handleDelete(b.id)}><DeleteIcon fontSize="small" /></IconButton>
-                    </Tooltip>
+                    {canEdit(b.createdBy) && (
+                      <Tooltip title={t("common.edit")}>
+                        <IconButton size="small" color="primary" onClick={() => handleOpenDialog(b)}>
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                    {canDelete(b.createdBy) && (
+                      <Tooltip title={t("common.delete")}>
+                        <IconButton size="small" color="error" onClick={() => handleDelete(b.id)}>
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    )}
                   </TableCell>
                 </TableRow>
               ))

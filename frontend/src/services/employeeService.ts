@@ -9,6 +9,7 @@ export interface Employee {
   status: string;
   location: string;
   birthday: string;
+  createdBy?: string;
   createdAt: string;
 }
 
@@ -25,13 +26,18 @@ export const getEmployeeById = async (id: number): Promise<Employee> => {
 };
 
 // Create new employee
-export const createEmployee = async (data: Omit<Employee, "id" | "createdAt">): Promise<Employee> => {
+export const createEmployee = async (
+  data: Omit<Employee, "id" | "createdAt" | "createdBy">
+): Promise<Employee> => {
   const response = await api.post("/Employees", data);
   return response.data;
 };
 
 // Update employee
-export const updateEmployee = async (id: number, data: Partial<Employee>): Promise<Employee> => {
+export const updateEmployee = async (
+  id: number,
+  data: Partial<Employee>
+): Promise<Employee> => {
   const { id: _, ...cleanData } = data;
   const response = await api.put(`/Employees/${id}`, cleanData);
   return response.data;

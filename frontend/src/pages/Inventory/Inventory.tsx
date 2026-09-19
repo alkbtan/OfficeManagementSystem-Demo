@@ -9,11 +9,13 @@ import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import { useTranslation } from "react-i18next";
+import { useUserPermissions } from "../../hooks/useUserPermissions";
 import { inventoryService } from "../../services/inventoryService";
 import type { InventoryItem } from "../../services/inventoryService";
 
 function Inventory() {
   const { t } = useTranslation();
+  const { canDelete, canEdit } = useUserPermissions();
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [openDialog, setOpenDialog] = useState(false);
@@ -22,7 +24,10 @@ function Inventory() {
     open: false, message: "", severity: "success" as "success" | "error",
   });
 
-  const categories = ["Cleaning Supplies", "Bathroom Supplies", "Office Supplies", "Cleaning Materials", "Event Supplies", "Kitchen Supplies"];
+  const categories = [
+    "Cleaning Supplies", "Bathroom Supplies", "Office Supplies",
+    "Cleaning Materials", "Event Supplies", "Kitchen Supplies",
+  ];
 
   const [formData, setFormData] = useState({
     name: "", category: "", quantity: 0, minStock: 0,
@@ -87,7 +92,7 @@ function Inventory() {
         quantity, minStock, unit: formData.unit || "",
         supplier: formData.supplier || "",
         purchaseDate: formData.purchaseDate ? new Date(formData.purchaseDate).toISOString() : null,
-        status: calculatedStatus,
+        status: calculatedStatus as "In Stock" | "Low Stock" | "Out of Stock",
       };
 
       if (editingItem) {
@@ -112,9 +117,10 @@ function Inventory() {
         await inventoryService.delete(id);
         showSnackbar(t("common.success"), "success");
         loadData();
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error deleting inventory item:", error);
-        showSnackbar(t("common.error"), "error");
+        const errorMessage = error?.response?.data?.message || t("common.error");
+        showSnackbar(errorMessage, "error");
       }
     }
   };
@@ -210,8 +216,16 @@ function Inventory() {
                       <Chip label={item.status} size="small" color={getStatusColor(item.status) as any} sx={{ mt: 0.5, ml: 0.5 }} />
                     </Box>
                     <Box>
-                      <IconButton size="small" color="primary" onClick={() => handleOpenDialog(item)}><EditIcon /></IconButton>
-                      <IconButton size="small" color="error" onClick={() => handleDeleteItem(item.id)}><DeleteIcon /></IconButton>
+                      {canEdit(item.createdBy) && (
+                        <IconButton size="small" color="primary" onClick={() => handleOpenDialog(item)}>
+                          <EditIcon />
+                        </IconButton>
+                      )}
+                      {canDelete(item.createdBy) && (
+                        <IconButton size="small" color="error" onClick={() => handleDeleteItem(item.id)}>
+                          <DeleteIcon />
+                        </IconButton>
+                      )}
                     </Box>
                   </Box>
 

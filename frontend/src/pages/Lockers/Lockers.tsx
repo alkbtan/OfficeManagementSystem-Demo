@@ -9,11 +9,13 @@ import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import { useTranslation } from "react-i18next";
+import { useUserPermissions } from "../../hooks/useUserPermissions";
 import { lockerService } from "../../services/lockerService";
 import type { Locker } from "../../services/lockerService";
 
 function Lockers() {
   const { t } = useTranslation();
+  const { canDelete, canEdit } = useUserPermissions();
   const [lockers, setLockers] = useState<Locker[]>([]);
   const [loading, setLoading] = useState(true);
   const [openDialog, setOpenDialog] = useState(false);
@@ -103,9 +105,10 @@ function Lockers() {
         await lockerService.delete(id);
         showSnackbar(t("common.success"), "success");
         loadData();
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error deleting locker:", error);
-        showSnackbar(t("common.error"), "error");
+        const errorMessage = error?.response?.data?.message || t("common.error");
+        showSnackbar(errorMessage, "error");
       }
     }
   };
@@ -167,8 +170,16 @@ function Lockers() {
                       )}
                     </Box>
                     <Box>
-                      <IconButton size="small" color="primary" onClick={() => handleOpenDialog(locker)}><EditIcon /></IconButton>
-                      <IconButton size="small" color="error" onClick={() => handleDeleteLocker(locker.id)}><DeleteIcon /></IconButton>
+                      {canEdit(locker.createdBy) && (
+                        <IconButton size="small" color="primary" onClick={() => handleOpenDialog(locker)}>
+                          <EditIcon />
+                        </IconButton>
+                      )}
+                      {canDelete(locker.createdBy) && (
+                        <IconButton size="small" color="error" onClick={() => handleDeleteLocker(locker.id)}>
+                          <DeleteIcon />
+                        </IconButton>
+                      )}
                     </Box>
                   </Box>
 

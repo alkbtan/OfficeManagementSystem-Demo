@@ -10,11 +10,13 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import AttachFileIcon from "@mui/icons-material/AttachFile";
 import { useTranslation } from "react-i18next";
+import { useUserPermissions } from "../../hooks/useUserPermissions";
 import { documentService } from "../../services/documentService";
 import type { Document } from "../../services/documentService";
 
 function Documents() {
   const { t } = useTranslation();
+  const { canDelete, canEdit } = useUserPermissions();
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
   const [openDialog, setOpenDialog] = useState(false);
@@ -123,9 +125,10 @@ function Documents() {
         await documentService.delete(id);
         showSnackbar(t("common.success"), "success");
         loadData();
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error deleting document:", error);
-        showSnackbar(t("common.error"), "error");
+        const errorMessage = error?.response?.data?.message || t("common.error");
+        showSnackbar(errorMessage, "error");
       }
     }
   };
@@ -196,8 +199,16 @@ function Documents() {
                       />
                     </Box>
                     <Box>
-                      <IconButton size="small" color="primary" onClick={() => handleOpenDialog(doc)}><EditIcon /></IconButton>
-                      <IconButton size="small" color="error" onClick={() => handleDeleteDocument(doc.id)}><DeleteIcon /></IconButton>
+                      {canEdit(doc.createdBy) && (
+                        <IconButton size="small" color="primary" onClick={() => handleOpenDialog(doc)}>
+                          <EditIcon />
+                        </IconButton>
+                      )}
+                      {canDelete(doc.createdBy) && (
+                        <IconButton size="small" color="error" onClick={() => handleDeleteDocument(doc.id)}>
+                          <DeleteIcon />
+                        </IconButton>
+                      )}
                     </Box>
                   </Box>
                   <Typography variant="body2" sx={{ mt: 1, color: "text.secondary" }}>{doc.description}</Typography>

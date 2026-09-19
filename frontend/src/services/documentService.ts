@@ -13,6 +13,7 @@ export interface Document {
   fileSize: number;
   filePath: string;
   uploadDate: string;
+  createdBy?: string;
   createdAt: string;
 }
 
@@ -27,42 +28,24 @@ export const documentService = {
     return response.data;
   },
 
-  getByCategory: async (
-    category: string
-  ): Promise<Document[]> => {
+  getByCategory: async (category: string): Promise<Document[]> => {
     const response = await api.get(
       `/Documents/category/${encodeURIComponent(category)}`
     );
-
     return response.data;
   },
 
-  create: async (
-    data: FormData
-  ): Promise<Document> => {
-    const response = await api.post(
-      "/Documents",
-      data
-    );
-
+  create: async (data: FormData): Promise<Document> => {
+    const response = await api.post("/Documents", data);
     return response.data;
   },
 
-  update: async (
-    id: number,
-    data: FormData
-  ): Promise<Document> => {
-    const response = await api.put(
-      `/Documents/${id}`,
-      data
-    );
-
+  update: async (id: number, data: FormData): Promise<Document> => {
+    const response = await api.put(`/Documents/${id}`, data);
     return response.data;
   },
 
-  delete: async (
-    id: number
-  ): Promise<void> => {
+  delete: async (id: number): Promise<void> => {
     await api.delete(`/Documents/${id}`);
   },
 };

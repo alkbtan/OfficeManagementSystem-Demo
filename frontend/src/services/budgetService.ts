@@ -7,6 +7,7 @@ export interface Budget {
   spent: number;
   year: number;
   month: number;
+  createdBy?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -33,7 +34,9 @@ export const budgetService = {
     return response.data;
   },
 
-  create: async (data: Omit<Budget, "id" | "createdAt" | "updatedAt">): Promise<Budget> => {
+  create: async (
+    data: Omit<Budget, "id" | "createdAt" | "updatedAt" | "createdBy">
+  ): Promise<Budget> => {
     const response = await api.post("/Budget", data);
     return response.data;
   },

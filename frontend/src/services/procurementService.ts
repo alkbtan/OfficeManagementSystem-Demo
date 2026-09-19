@@ -34,31 +34,28 @@ export interface ProcurementRequest {
   paymentReceiptPath: string;
   expectedDeliveryDate: string | null;
   purchaseDataFilePath: string;
+  createdBy?: string;
   createdAt: string;
 }
 
 export const procurementService = {
-  // Get all procurement requests
   getAll: async (): Promise<ProcurementRequest[]> => {
     const response = await api.get("/Procurement");
     return response.data;
   },
 
-  // Get request by ID
   getById: async (id: number): Promise<ProcurementRequest> => {
     const response = await api.get(`/Procurement/${id}`);
     return response.data;
   },
 
-  // Create new procurement request
   create: async (
-    data: Partial<Omit<ProcurementRequest, "id" | "createdAt">>
+    data: Partial<Omit<ProcurementRequest, "id" | "createdAt" | "createdBy">>
   ): Promise<ProcurementRequest> => {
     const response = await api.post("/Procurement", data);
     return response.data;
   },
 
-  // Update procurement request
   update: async (
     id: number,
     data: Partial<ProcurementRequest>
@@ -68,12 +65,10 @@ export const procurementService = {
     return response.data;
   },
 
-  // Delete procurement request
   delete: async (id: number): Promise<void> => {
     await api.delete(`/Procurement/${id}`);
   },
 
-  // Get stats
   getStats: async (): Promise<{
     total: number;
     pending: number;
@@ -86,5 +81,4 @@ export const procurementService = {
   },
 };
 
-// Export function for Reports
 export const getAllProcurementRequests = procurementService.getAll;

@@ -9,11 +9,13 @@ import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import { useTranslation } from "react-i18next";
+import { useUserPermissions } from "../../hooks/useUserPermissions";
 import { eventService } from "../../services/eventService";
 import type { Event } from "../../services/eventService";
 
 function Events() {
   const { t } = useTranslation();
+  const { canDelete, canEdit } = useUserPermissions();
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [openDialog, setOpenDialog] = useState(false);
@@ -105,7 +107,7 @@ function Events() {
         await eventService.update(editingEvent.id, dataToSend);
         showSnackbar(t("common.success"), "success");
       } else {
-        await eventService.create(dataToSend);
+        await eventService.create(dataToSend as any);
         showSnackbar(t("common.success"), "success");
       }
       handleCloseDialog();
@@ -123,9 +125,10 @@ function Events() {
         await eventService.delete(id);
         showSnackbar(t("common.success"), "success");
         loadData();
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error deleting event:", error);
-        showSnackbar(t("common.error"), "error");
+        const errorMessage = error?.response?.data?.message || t("common.error");
+        showSnackbar(errorMessage, "error");
       }
     }
   };
@@ -194,8 +197,16 @@ function Events() {
                       <Chip label={event.status} size="small" color={getStatusColor(event.status) as any} sx={{ mt: 0.5, ml: 0.5 }} />
                     </Box>
                     <Box>
-                      <IconButton size="small" color="primary" onClick={() => handleOpenDialog(event)}><EditIcon /></IconButton>
-                      <IconButton size="small" color="error" onClick={() => handleDeleteEvent(event.id)}><DeleteIcon /></IconButton>
+                      {canEdit(event.createdBy) && (
+                        <IconButton size="small" color="primary" onClick={() => handleOpenDialog(event)}>
+                          <EditIcon />
+                        </IconButton>
+                      )}
+                      {canDelete(event.createdBy) && (
+                        <IconButton size="small" color="error" onClick={() => handleDeleteEvent(event.id)}>
+                          <DeleteIcon />
+                        </IconButton>
+                      )}
                     </Box>
                   </Box>
 
