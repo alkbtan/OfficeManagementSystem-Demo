@@ -1,10 +1,13 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using OfficeManagementAPI.Data;
 using OfficeManagementAPI.Models;
+using System.Security.Claims;
 
 namespace OfficeManagementAPI.Controllers;
 
+[Authorize]
 [ApiController]
 [Route("api/[controller]")]
 public class ACsController : ControllerBase
@@ -15,6 +18,10 @@ public class ACsController : ControllerBase
     {
         _context = context;
     }
+
+    private string CurrentUsername => User.FindFirst(ClaimTypes.Name)?.Value ?? "";
+    private string CurrentRole => User.FindFirst(ClaimTypes.Role)?.Value ?? "";
+    private bool CanDeleteAny => CurrentRole == "Admin" || CurrentRole == "Manager";
 
     [HttpGet]
     public async Task<ActionResult<IEnumerable<AirConditioner>>> GetAll()
@@ -39,6 +46,7 @@ public class ACsController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<AirConditioner>> Create(AirConditioner ac)
     {
+        ac.CreatedBy = CurrentUsername;
         ac.CreatedAt = DateTime.UtcNow;
         ac.LastMaintenance = DateTime.UtcNow;
         ac.InstallationDate = ac.InstallationDate.ToUniversalTime();
@@ -50,12 +58,29 @@ public class ACsController : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(int id, AirConditioner ac)
     {
+        var existing = await _context.AirConditioners.FindAsync(id);
+        if (existing == null)
+            return NotFound();
+
+        if (!CanDeleteAny && existing.CreatedBy != CurrentUsername)
+            return Forbid();
+
         if (id != ac.Id)
             return BadRequest();
 
-        _context.Entry(ac).State = EntityState.Modified;
+        existing.Name = ac.Name;
+        existing.Location = ac.Location;
+        existing.Brand = ac.Brand;
+        existing.Model = ac.Model ?? string.Empty;
+        existing.Capacity = ac.Capacity;
+        existing.Status = ac.Status;
+        existing.InstallationDate = ac.InstallationDate;
+        existing.LastMaintenance = ac.LastMaintenance;
+        existing.TotalMaintenanceCost = ac.TotalMaintenanceCost;
+        existing.MaintenanceCount = ac.MaintenanceCount;
+
         await _context.SaveChangesAsync();
-        return Ok(ac);
+        return Ok(existing);
     }
 
     [HttpDelete("{id}")]
@@ -64,6 +89,9 @@ public class ACsController : ControllerBase
         var ac = await _context.AirConditioners.FindAsync(id);
         if (ac == null)
             return NotFound();
+
+        if (!CanDeleteAny && ac.CreatedBy != CurrentUsername)
+            return Forbid();
 
         _context.AirConditioners.Remove(ac);
         await _context.SaveChangesAsync();
@@ -104,7 +132,6 @@ public class ACsController : ControllerBase
 
         _context.ACIssues.Add(issue);
 
-        // Update AC status
         ac.Status = "Under Maintenance";
         ac.MaintenanceCount += 1;
 
@@ -122,7 +149,6 @@ public class ACsController : ControllerBase
         issue.Status = "Resolved";
         issue.ResolvedDate = DateTime.UtcNow;
 
-        // Update AC status if no other open issues
         var hasOpenIssues = await _context.ACIssues
             .AnyAsync(i => i.AirConditionerId == issue.AirConditionerId && i.Status != "Resolved");
 

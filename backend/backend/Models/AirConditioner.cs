@@ -10,7 +10,6 @@ public class AirConditioner
     [MaxLength(100)]
     public string Name { get; set; } = string.Empty;
 
-    // ✅ NEW FIELD
     [Required]
     [MaxLength(100)]
     public string Location { get; set; } = string.Empty;
@@ -22,7 +21,7 @@ public class AirConditioner
     [MaxLength(50)]
     public string Model { get; set; } = string.Empty;
 
-    public int Capacity { get; set; } // BTU
+    public int Capacity { get; set; }
 
     public DateTime InstallationDate { get; set; }
 
@@ -36,6 +35,9 @@ public class AirConditioner
     public int MaintenanceCount { get; set; }
 
     public List<ACIssue> Issues { get; set; } = new();
+
+    [MaxLength(50)]
+    public string CreatedBy { get; set; } = string.Empty;
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

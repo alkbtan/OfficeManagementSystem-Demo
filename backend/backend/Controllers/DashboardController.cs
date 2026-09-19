@@ -1,9 +1,11 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using OfficeManagementAPI.Data;
 
 namespace OfficeManagementAPI.Controllers;
 
+[Authorize]
 [ApiController]
 [Route("api/[controller]")]
 public class DashboardController : ControllerBase
@@ -15,7 +17,6 @@ public class DashboardController : ControllerBase
         _context = context;
     }
 
-    // GET: api/Dashboard/stats
     [HttpGet("stats")]
     public async Task<ActionResult<object>> GetStats()
     {
@@ -37,7 +38,6 @@ public class DashboardController : ControllerBase
         });
     }
 
-    // GET: api/Dashboard/recent-activities
     [HttpGet("recent-activities")]
     public async Task<ActionResult<object>> GetRecentActivities()
     {
@@ -53,34 +53,33 @@ public class DashboardController : ControllerBase
             .Select(e => new { e.Id, Name = e.FirstName + " " + e.LastName, e.Department, e.CreatedAt })
             .ToListAsync();
 
-        return Ok(new
-        {
-            tickets = recentTickets,
-            employees = recentEmployees
-        });
+        return Ok(new { tickets = recentTickets, employees = recentEmployees });
     }
 
-    // GET: api/Dashboard/inventory-stats
     [HttpGet("inventory-stats")]
     public async Task<ActionResult<object>> GetInventoryStats()
     {
-        var totalItems = await _context.InventoryItems.CountAsync();
-        var lowStock = await _context.InventoryItems.CountAsync(i => i.Status == "Low Stock");
-        var outOfStock = await _context.InventoryItems.CountAsync(i => i.Status == "Out of Stock");
-        
-        // ✅ FIXED: Removed PurchasePrice and Consumption
-        var totalValue = await _context.InventoryItems.SumAsync(i => i.Quantity * 0);
+        var items = await _context.InventoryItems.ToListAsync();
 
-        return Ok(new
+        foreach (var item in items)
         {
-            totalItems,
-            lowStock,
-            outOfStock,
-            totalValue
-        });
+            if (item.Quantity <= 0)
+                item.Status = "Out of Stock";
+            else if (item.Quantity < item.MinStock)
+                item.Status = "Low Stock";
+            else
+                item.Status = "In Stock";
+        }
+
+        await _context.SaveChangesAsync();
+
+        var totalItems = items.Count;
+        var lowStock = items.Count(i => i.Status == "Low Stock");
+        var outOfStock = items.Count(i => i.Status == "Out of Stock");
+
+        return Ok(new { totalItems, lowStock, outOfStock });
     }
 
-    // GET: api/Dashboard/ticket-stats
     [HttpGet("ticket-stats")]
     public async Task<ActionResult<object>> GetTicketStats()
     {
@@ -89,16 +88,9 @@ public class DashboardController : ControllerBase
         var resolved = await _context.Tickets.CountAsync(t => t.Status == "Resolved");
         var closed = await _context.Tickets.CountAsync(t => t.Status == "Closed");
 
-        return Ok(new
-        {
-            open,
-            inProgress,
-            resolved,
-            closed
-        });
+        return Ok(new { open, inProgress, resolved, closed });
     }
 
-    // GET: api/Dashboard/low-stock-items
     [HttpGet("low-stock-items")]
     public async Task<ActionResult<object>> GetLowStockItems()
     {

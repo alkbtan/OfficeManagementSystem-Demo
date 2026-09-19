@@ -1,10 +1,13 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using OfficeManagementAPI.Data;
 using OfficeManagementAPI.Models;
+using System.Security.Claims;
 
 namespace OfficeManagementAPI.Controllers;
 
+[Authorize]
 [ApiController]
 [Route("api/[controller]")]
 public class AssetsController : ControllerBase
@@ -16,7 +19,10 @@ public class AssetsController : ControllerBase
         _context = context;
     }
 
-    // GET: api/Assets
+    private string CurrentUsername => User.FindFirst(ClaimTypes.Name)?.Value ?? "";
+    private string CurrentRole => User.FindFirst(ClaimTypes.Role)?.Value ?? "";
+    private bool CanDeleteAny => CurrentRole == "Admin" || CurrentRole == "Manager";
+
     [HttpGet]
     public async Task<ActionResult<IEnumerable<Asset>>> GetAll()
     {
@@ -25,7 +31,6 @@ public class AssetsController : ControllerBase
             .ToListAsync();
     }
 
-    // GET: api/Assets/{id}
     [HttpGet("{id}")]
     public async Task<ActionResult<Asset>> GetById(int id)
     {
@@ -35,7 +40,6 @@ public class AssetsController : ControllerBase
         return asset;
     }
 
-    // POST: api/Assets
     [HttpPost]
     public async Task<ActionResult<Asset>> Create([FromBody] Asset asset)
     {
@@ -45,13 +49,13 @@ public class AssetsController : ControllerBase
         if (string.IsNullOrWhiteSpace(asset.Type))
             return BadRequest(new { message = "Type is required" });
 
+        asset.CreatedBy = CurrentUsername;
         asset.CreatedAt = DateTime.UtcNow;
         _context.Assets.Add(asset);
         await _context.SaveChangesAsync();
         return Ok(asset);
     }
 
-    // PUT: api/Assets/{id}
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(int id, [FromBody] Asset asset)
     {
@@ -59,13 +63,15 @@ public class AssetsController : ControllerBase
         if (existingAsset == null)
             return NotFound(new { message = "Asset not found" });
 
+        if (!CanDeleteAny && existingAsset.CreatedBy != CurrentUsername)
+            return Forbid();
+
         if (string.IsNullOrWhiteSpace(asset.Name))
             return BadRequest(new { message = "Name is required" });
 
         if (string.IsNullOrWhiteSpace(asset.Type))
             return BadRequest(new { message = "Type is required" });
 
-        // Update fields
         existingAsset.Name = asset.Name;
         existingAsset.Type = asset.Type;
         existingAsset.Model = asset.Model ?? string.Empty;
@@ -78,7 +84,6 @@ public class AssetsController : ControllerBase
         return Ok(existingAsset);
     }
 
-    // DELETE: api/Assets/{id}
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {
@@ -86,12 +91,14 @@ public class AssetsController : ControllerBase
         if (asset == null)
             return NotFound();
 
+        if (!CanDeleteAny && asset.CreatedBy != CurrentUsername)
+            return Forbid();
+
         _context.Assets.Remove(asset);
         await _context.SaveChangesAsync();
         return NoContent();
     }
 
-    // GET: api/Assets/available
     [HttpGet("available")]
     public async Task<ActionResult<IEnumerable<Asset>>> GetAvailable()
     {

@@ -28,5 +28,8 @@ public class Locker
 
     public bool BiometricEnabled { get; set; } = false;
 
+    [MaxLength(50)]
+    public string CreatedBy { get; set; } = string.Empty;
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

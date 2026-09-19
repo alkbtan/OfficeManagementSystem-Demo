@@ -22,7 +22,6 @@ public class Ticket
     [MaxLength(100)]
     public string AssignedTo { get; set; } = string.Empty;
 
-    // ✅ NEW FIELDS
     [MaxLength(50)]
     public string JiraTicket { get; set; } = string.Empty;
 
@@ -38,6 +37,9 @@ public class Ticket
 
     [MaxLength(100)]
     public string Company { get; set; } = string.Empty;
+
+    [MaxLength(50)]
+    public string CreatedBy { get; set; } = string.Empty;
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

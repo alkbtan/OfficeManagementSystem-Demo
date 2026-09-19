@@ -10,9 +10,6 @@ public class ApplicationDbContext : DbContext
     {
     }
 
-    // =========================================================
-    // DbSet Definitions - All Tables
-    // =========================================================
     public DbSet<Employee> Employees { get; set; }
     public DbSet<User> Users { get; set; }
     public DbSet<Asset> Assets { get; set; }
@@ -33,9 +30,7 @@ public class ApplicationDbContext : DbContext
     {
         base.OnModelCreating(modelBuilder);
 
-        // =========================================================
-        // Employee Configuration
-        // =========================================================
+        // Employee
         modelBuilder.Entity<Employee>(entity =>
         {
             entity.HasKey(e => e.Id);
@@ -45,15 +40,15 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Department).IsRequired().HasMaxLength(50);
             entity.Property(e => e.Status).HasMaxLength(20).HasDefaultValue("Active");
             entity.Property(e => e.Location).HasMaxLength(100);
-            entity.Property(e => e.Birthday);
+            entity.Property(e => e.CreatedBy).HasMaxLength(50);
         });
 
-        // =========================================================
-        // User Configuration
-        // =========================================================
+        // User
         modelBuilder.Entity<User>(entity =>
         {
             entity.HasKey(e => e.Id);
+            entity.Property(e => e.Username).IsRequired().HasMaxLength(50);
+            entity.HasIndex(e => e.Username).IsUnique();
             entity.Property(e => e.Name).IsRequired().HasMaxLength(100);
             entity.Property(e => e.Email).IsRequired().HasMaxLength(100);
             entity.HasIndex(e => e.Email).IsUnique();
@@ -62,9 +57,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Status).HasMaxLength(20).HasDefaultValue("Active");
         });
 
-        // =========================================================
-        // Asset Configuration
-        // =========================================================
+        // Asset
         modelBuilder.Entity<Asset>(entity =>
         {
             entity.HasKey(e => e.Id);
@@ -76,11 +69,10 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Status).HasMaxLength(20).HasDefaultValue("Available");
             entity.Property(e => e.AssignedTo).HasMaxLength(100);
             entity.Property(e => e.Location).HasMaxLength(100);
+            entity.Property(e => e.CreatedBy).HasMaxLength(50);
         });
 
-        // =========================================================
-        // Ticket Configuration
-        // =========================================================
+        // Ticket
         modelBuilder.Entity<Ticket>(entity =>
         {
             entity.HasKey(e => e.Id);
@@ -94,11 +86,10 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Amount).HasPrecision(18, 2);
             entity.Property(e => e.Floor).HasMaxLength(20);
             entity.Property(e => e.Company).HasMaxLength(100);
+            entity.Property(e => e.CreatedBy).HasMaxLength(50);
         });
 
-        // =========================================================
-        // Request Configuration
-        // =========================================================
+        // Request
         modelBuilder.Entity<Request>(entity =>
         {
             entity.HasKey(e => e.Id);
@@ -110,9 +101,7 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Priority).HasMaxLength(20).HasDefaultValue("Medium");
         });
 
-        // =========================================================
-        // InventoryItem Configuration - Updated with new fields
-        // =========================================================
+        // InventoryItem
         modelBuilder.Entity<InventoryItem>(entity =>
         {
             entity.HasKey(e => e.Id);
@@ -122,13 +111,11 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.MinStock).IsRequired();
             entity.Property(e => e.Unit).HasMaxLength(20);
             entity.Property(e => e.Supplier).HasMaxLength(100);
-            entity.Property(e => e.PurchaseDate);
             entity.Property(e => e.Status).HasMaxLength(20).HasDefaultValue("In Stock");
+            entity.Property(e => e.CreatedBy).HasMaxLength(50);
         });
 
-        // =========================================================
-        // AirConditioner Configuration
-        // =========================================================
+        // AirConditioner
         modelBuilder.Entity<AirConditioner>(entity =>
         {
             entity.HasKey(e => e.Id);
@@ -140,11 +127,10 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Status).HasMaxLength(20).HasDefaultValue("Operational");
             entity.Property(e => e.TotalMaintenanceCost).HasPrecision(18, 2);
             entity.Property(e => e.MaintenanceCount).HasDefaultValue(0);
+            entity.Property(e => e.CreatedBy).HasMaxLength(50);
         });
 
-        // =========================================================
-        // ACIssue Configuration
-        // =========================================================
+        // ACIssue
         modelBuilder.Entity<ACIssue>(entity =>
         {
             entity.HasKey(e => e.Id);
@@ -159,9 +145,7 @@ public class ApplicationDbContext : DbContext
                   .OnDelete(DeleteBehavior.Cascade);
         });
 
-        // =========================================================
-        // Locker Configuration
-        // =========================================================
+        // Locker
         modelBuilder.Entity<Locker>(entity =>
         {
             entity.HasKey(e => e.Id);
@@ -172,11 +156,10 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.AssignedTo).HasMaxLength(100);
             entity.Property(e => e.AssignedToName).HasMaxLength(100);
             entity.Property(e => e.BiometricEnabled).HasDefaultValue(false);
+            entity.Property(e => e.CreatedBy).HasMaxLength(50);
         });
 
-        // =========================================================
-        // ProcurementRequest Configuration
-        // =========================================================
+        // ProcurementRequest
         modelBuilder.Entity<ProcurementRequest>(entity =>
         {
             entity.HasKey(e => e.Id);
@@ -205,22 +188,20 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.BoletoFilePath).HasMaxLength(500);
             entity.Property(e => e.PaymentReceiptPath).HasMaxLength(500);
             entity.Property(e => e.PurchaseDataFilePath).HasMaxLength(500);
+            entity.Property(e => e.CreatedBy).HasMaxLength(50);
         });
 
-        // =========================================================
-        // Budget Configuration
-        // =========================================================
+        // Budget
         modelBuilder.Entity<Budget>(entity =>
         {
             entity.HasKey(e => e.Id);
             entity.Property(e => e.Category).IsRequired().HasMaxLength(100);
             entity.Property(e => e.Planned).HasPrecision(18, 2);
             entity.Property(e => e.Spent).HasPrecision(18, 2);
+            entity.Property(e => e.CreatedBy).HasMaxLength(50);
         });
 
-        // =========================================================
-        // Event Configuration
-        // =========================================================
+        // Event
         modelBuilder.Entity<Event>(entity =>
         {
             entity.HasKey(e => e.Id);
@@ -232,11 +213,10 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Time).IsRequired().HasMaxLength(10);
             entity.Property(e => e.Preparation).HasMaxLength(500);
             entity.Property(e => e.Equipment).HasMaxLength(500);
+            entity.Property(e => e.CreatedBy).HasMaxLength(50);
         });
 
-        // =========================================================
-        // Sport Configuration
-        // =========================================================
+        // Sport
         modelBuilder.Entity<Sport>(entity =>
         {
             entity.HasKey(e => e.Id);
@@ -246,11 +226,10 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Preparation).HasMaxLength(500);
             entity.Property(e => e.Equipment).HasMaxLength(500);
             entity.Property(e => e.Status).HasMaxLength(20).HasDefaultValue("Pending");
+            entity.Property(e => e.CreatedBy).HasMaxLength(50);
         });
 
-        // =========================================================
-        // Document Configuration
-        // =========================================================
+        // Document
         modelBuilder.Entity<Document>(entity =>
         {
             entity.HasKey(e => e.Id);
@@ -263,11 +242,10 @@ public class ApplicationDbContext : DbContext
             entity.Property(e => e.Status).HasMaxLength(50);
             entity.Property(e => e.Description).HasMaxLength(500);
             entity.Property(e => e.FilePath).HasMaxLength(255);
+            entity.Property(e => e.CreatedBy).HasMaxLength(50);
         });
 
-        // =========================================================
-        // TodoTask Configuration
-        // =========================================================
+        // TodoTask
         modelBuilder.Entity<TodoTask>(entity =>
         {
             entity.HasKey(e => e.Id);

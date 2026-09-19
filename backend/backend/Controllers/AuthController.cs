@@ -22,21 +22,22 @@ public class AuthController : ControllerBase
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
-        // Search for user in database
+        if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
+            return Unauthorized(new { message = "Invalid username or password" });
+
         var user = await _context.Users
-            .FirstOrDefaultAsync(u => u.Email == request.Email);
+            .FirstOrDefaultAsync(u => u.Username == request.Username);
 
         if (user == null)
-            return Unauthorized(new { message = "Invalid email or password" });
+            return Unauthorized(new { message = "Invalid username or password" });
 
         if (user.Status != "Active")
             return Unauthorized(new { message = "Account is inactive" });
 
-        // FIX: Use BCrypt.Verify instead of plaintext comparison
         if (!BCrypt.Net.BCrypt.Verify(request.Password, user.Password))
-            return Unauthorized(new { message = "Invalid email or password" });
+            return Unauthorized(new { message = "Invalid username or password" });
 
-        var token = GenerateJwtToken(user.Email, user.Role);
+        var token = GenerateJwtToken(user);
 
         return Ok(new
         {
@@ -44,6 +45,7 @@ public class AuthController : ControllerBase
             user = new
             {
                 id = user.Id,
+                username = user.Username,
                 name = user.Name,
                 email = user.Email,
                 role = user.Role
@@ -51,7 +53,7 @@ public class AuthController : ControllerBase
         });
     }
 
-    private string GenerateJwtToken(string email, string role)
+    private string GenerateJwtToken(Models.User user)
     {
         var key = new SymmetricSecurityKey(
             Encoding.UTF8.GetBytes("YourSuperSecretKeyHere1234567890!@#$%"));
@@ -60,8 +62,10 @@ public class AuthController : ControllerBase
 
         var claims = new[]
         {
-            new Claim(ClaimTypes.Email, email),
-            new Claim(ClaimTypes.Role, role)
+            new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+            new Claim(ClaimTypes.Name, user.Username),
+            new Claim(ClaimTypes.Email, user.Email),
+            new Claim(ClaimTypes.Role, user.Role)
         };
 
         var token = new JwtSecurityToken(
@@ -78,6 +82,6 @@ public class AuthController : ControllerBase
 
 public class LoginRequest
 {
-    public string Email { get; set; } = string.Empty;
+    public string Username { get; set; } = string.Empty;
     public string Password { get; set; } = string.Empty;
 }

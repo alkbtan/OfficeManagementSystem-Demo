@@ -1,10 +1,13 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using OfficeManagementAPI.Data;
 using OfficeManagementAPI.Models;
+using System.Security.Claims;
 
 namespace OfficeManagementAPI.Controllers;
 
+[Authorize]
 [ApiController]
 [Route("api/[controller]")]
 public class EmployeesController : ControllerBase
@@ -16,7 +19,10 @@ public class EmployeesController : ControllerBase
         _context = context;
     }
 
-    // GET: api/Employees
+    private string CurrentUsername => User.FindFirst(ClaimTypes.Name)?.Value ?? "";
+    private string CurrentRole => User.FindFirst(ClaimTypes.Role)?.Value ?? "";
+    private bool CanDeleteAny => CurrentRole == "Admin" || CurrentRole == "Manager";
+
     [HttpGet]
     public async Task<ActionResult<IEnumerable<Employee>>> GetAll()
     {
@@ -25,7 +31,6 @@ public class EmployeesController : ControllerBase
             .ToListAsync();
     }
 
-    // GET: api/Employees/{id}
     [HttpGet("{id}")]
     public async Task<ActionResult<Employee>> GetById(int id)
     {
@@ -35,7 +40,6 @@ public class EmployeesController : ControllerBase
         return employee;
     }
 
-    // POST: api/Employees
     [HttpPost]
     public async Task<ActionResult<Employee>> Create([FromBody] Employee employee)
     {
@@ -51,6 +55,7 @@ public class EmployeesController : ControllerBase
         if (string.IsNullOrWhiteSpace(employee.Department))
             return BadRequest(new { message = "Department is required" });
 
+        employee.CreatedBy = CurrentUsername;
         employee.CreatedAt = DateTime.UtcNow;
         _context.Employees.Add(employee);
         await _context.SaveChangesAsync();
@@ -58,16 +63,17 @@ public class EmployeesController : ControllerBase
         return Ok(employee);
     }
 
-    // PUT: api/Employees/{id}
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(int id, [FromBody] Employee employee)
     {
-        // Check if employee exists
         var existingEmployee = await _context.Employees.FindAsync(id);
         if (existingEmployee == null)
             return NotFound(new { message = "Employee not found" });
 
-        // Validate required fields
+        // User can only edit their own entries
+        if (!CanDeleteAny && existingEmployee.CreatedBy != CurrentUsername)
+            return Forbid();
+
         if (string.IsNullOrWhiteSpace(employee.FirstName))
             return BadRequest(new { message = "First Name is required" });
 
@@ -80,7 +86,6 @@ public class EmployeesController : ControllerBase
         if (string.IsNullOrWhiteSpace(employee.Department))
             return BadRequest(new { message = "Department is required" });
 
-        // Update fields
         existingEmployee.FirstName = employee.FirstName;
         existingEmployee.LastName = employee.LastName;
         existingEmployee.Email = employee.Email;
@@ -90,11 +95,9 @@ public class EmployeesController : ControllerBase
         existingEmployee.Birthday = employee.Birthday;
 
         await _context.SaveChangesAsync();
-
         return Ok(existingEmployee);
     }
 
-    // DELETE: api/Employees/{id}
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {
@@ -102,13 +105,15 @@ public class EmployeesController : ControllerBase
         if (employee == null)
             return NotFound();
 
+        // User can only delete their own entries
+        if (!CanDeleteAny && employee.CreatedBy != CurrentUsername)
+            return Forbid();
+
         _context.Employees.Remove(employee);
         await _context.SaveChangesAsync();
-
         return NoContent();
     }
 
-    // GET: api/Employees/department/{department}
     [HttpGet("department/{department}")]
     public async Task<ActionResult<IEnumerable<Employee>>> GetByDepartment(string department)
     {
@@ -118,7 +123,6 @@ public class EmployeesController : ControllerBase
             .ToListAsync();
     }
 
-    // GET: api/Employees/stats
     [HttpGet("stats")]
     public async Task<ActionResult<object>> GetStats()
     {

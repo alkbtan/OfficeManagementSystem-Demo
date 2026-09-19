@@ -9,7 +9,6 @@ public class ProcurementRequest
     [MaxLength(50)]
     public string RequestNumber { get; set; } = string.Empty;
 
-    // 1. Request Information
     [MaxLength(200)]
     public string Item { get; set; } = string.Empty;
 
@@ -36,7 +35,6 @@ public class ProcurementRequest
     [MaxLength(1000)]
     public string BriefDescription { get; set; } = string.Empty;
 
-    // 2. Purchase Information
     [MaxLength(200)]
     public string Supplier { get; set; } = string.Empty;
 
@@ -54,7 +52,6 @@ public class ProcurementRequest
     [MaxLength(50)]
     public string PaymentMethod { get; set; } = "PIX";
 
-    // 3. Request Control
     [MaxLength(20)]
     public string Priority { get; set; } = "Medium";
 
@@ -64,7 +61,6 @@ public class ProcurementRequest
     public DateTime FormDate { get; set; } = DateTime.UtcNow;
     public DateTime? PurchaseDeadline { get; set; }
 
-    // 4. Approval
     [MaxLength(100)]
     public string ApprovedBy { get; set; } = string.Empty;
 
@@ -76,7 +72,6 @@ public class ProcurementRequest
     [MaxLength(500)]
     public string TicketLink { get; set; } = string.Empty;
 
-    // 5. Payment
     [MaxLength(100)]
     public string InvoiceNumber { get; set; } = string.Empty;
 
@@ -89,11 +84,13 @@ public class ProcurementRequest
     [MaxLength(500)]
     public string PaymentReceiptPath { get; set; } = string.Empty;
 
-    // 6. Delivery
     public DateTime? ExpectedDeliveryDate { get; set; }
 
     [MaxLength(500)]
     public string PurchaseDataFilePath { get; set; } = string.Empty;
+
+    [MaxLength(50)]
+    public string CreatedBy { get; set; } = string.Empty;
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

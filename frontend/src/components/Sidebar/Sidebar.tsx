@@ -13,7 +13,7 @@ import {
   Divider,
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import PeopleIcon from "@mui/icons-material/People";
@@ -33,11 +33,35 @@ import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
 
 import logoImage from "../../assets/images/testfly-logo.webp";
 
+interface UserData {
+  id: number;
+  username: string;
+  name: string;
+  email: string;
+  role: string;
+}
+
 function Sidebar() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const { t } = useTranslation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [user, setUser] = useState<UserData | null>(null);
+
+  useEffect(() => {
+    const userData = localStorage.getItem("user");
+    if (userData) {
+      try {
+        setUser(JSON.parse(userData));
+      } catch (error) {
+        console.error("Failed to parse user data:", error);
+      }
+    }
+  }, []);
+
+  const isAdmin = user?.role === "Admin";
+  const isManager = user?.role === "Manager";
+  const canSeeUsers = isAdmin || isManager;
 
   const menuItems = [
     { text: t("sidebar.dashboard"), icon: <DashboardIcon />, path: "/" },
@@ -53,7 +77,10 @@ function Sidebar() {
     { text: t("sidebar.events"), icon: <EventIcon />, path: "/events" },
     { text: t("sidebar.sports"), icon: <SportsIcon />, path: "/sports" },
     { text: t("sidebar.documents"), icon: <FolderIcon />, path: "/documents" },
-    { text: t("sidebar.users"), icon: <PersonAddIcon />, path: "/users" },
+    // Users: only visible for Admin/Manager
+    ...(canSeeUsers
+      ? [{ text: t("sidebar.users"), icon: <PersonAddIcon />, path: "/users" }]
+      : []),
     { text: t("sidebar.settings"), icon: <SettingsIcon />, path: "/settings" },
   ];
 
@@ -68,19 +95,45 @@ function Sidebar() {
         overflowY: "auto",
       }}
     >
-      {/* Brand Logo and Name */}
-      <Box sx={{ mb: 2, display: "flex", alignItems: "center", justifyContent: "space-between", px: 1 }}>
-        <Box 
-          component={Link} 
-          to="/" 
-          sx={{ display: "flex", alignItems: "center", gap: 1.5, textDecoration: "none", color: "inherit" }}
+      <Box
+        sx={{
+          mb: 2,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          px: 1,
+        }}
+      >
+        <Box
+          component={Link}
+          to="/"
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 1.5,
+            textDecoration: "none",
+            color: "inherit",
+          }}
         >
-          <img 
-            src={logoImage} 
-            alt="TestFlyQA Logo" 
-            style={{ height: "55px", width: "auto", objectFit: "contain", borderRadius: "4px" }} 
+          <img
+            src={logoImage}
+            alt="TestFlyQA Logo"
+            style={{
+              height: "55px",
+              width: "auto",
+              objectFit: "contain",
+              borderRadius: "4px",
+            }}
           />
-          <Typography variant="h6" sx={{ fontWeight: "bold", color: "white", fontSize: "1.15rem", letterSpacing: "0.5px" }}>
+          <Typography
+            variant="h6"
+            sx={{
+              fontWeight: "bold",
+              color: "white",
+              fontSize: "1.15rem",
+              letterSpacing: "0.5px",
+            }}
+          >
             TestFlyQA
           </Typography>
         </Box>
@@ -94,7 +147,6 @@ function Sidebar() {
 
       <Divider sx={{ bgcolor: "rgba(255,255,255,0.15)", mb: 2 }} />
 
-      {/* Navigation List */}
       <List>
         {menuItems.map((item) => (
           <ListItem
@@ -108,9 +160,7 @@ function Sidebar() {
               color: "white",
               textDecoration: "none",
               cursor: "pointer",
-              "&:hover": {
-                bgcolor: "rgba(255,255,255,0.1)",
-              },
+              "&:hover": { bgcolor: "rgba(255,255,255,0.1)" },
             }}
           >
             <ListItemIcon sx={{ color: "white", minWidth: 40 }}>
@@ -136,7 +186,13 @@ function Sidebar() {
       {isMobile && (
         <IconButton
           onClick={() => setMobileOpen(true)}
-          sx={{ position: "fixed", top: 70, left: 10, zIndex: 1000, color: "#1a237e" }}
+          sx={{
+            position: "fixed",
+            top: 70,
+            left: 10,
+            zIndex: 1000,
+            color: "#1a237e",
+          }}
         >
           <MenuIcon />
         </IconButton>

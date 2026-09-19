@@ -1,10 +1,13 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using OfficeManagementAPI.Data;
 using OfficeManagementAPI.Models;
+using System.Security.Claims;
 
 namespace OfficeManagementAPI.Controllers;
 
+[Authorize]
 [ApiController]
 [Route("api/[controller]")]
 public class SportsController : ControllerBase
@@ -16,7 +19,10 @@ public class SportsController : ControllerBase
         _context = context;
     }
 
-    // GET: api/Sports
+    private string CurrentUsername => User.FindFirst(ClaimTypes.Name)?.Value ?? "";
+    private string CurrentRole => User.FindFirst(ClaimTypes.Role)?.Value ?? "";
+    private bool CanDeleteAny => CurrentRole == "Admin" || CurrentRole == "Manager";
+
     [HttpGet]
     public async Task<ActionResult<IEnumerable<Sport>>> GetAll()
     {
@@ -25,7 +31,6 @@ public class SportsController : ControllerBase
             .ToListAsync();
     }
 
-    // GET: api/Sports/{id}
     [HttpGet("{id}")]
     public async Task<ActionResult<Sport>> GetById(int id)
     {
@@ -35,11 +40,9 @@ public class SportsController : ControllerBase
         return sport;
     }
 
-    // POST: api/Sports
     [HttpPost]
     public async Task<ActionResult<Sport>> Create([FromBody] Sport sport)
     {
-        // Validate required fields
         if (string.IsNullOrWhiteSpace(sport.Name))
             return BadRequest(new { message = "Match Name is required" });
 
@@ -49,28 +52,26 @@ public class SportsController : ControllerBase
         if (string.IsNullOrWhiteSpace(sport.Time))
             return BadRequest(new { message = "Time is required" });
 
-        // Convert date to UTC
         if (sport.Date.Kind != DateTimeKind.Utc)
-        {
             sport.Date = DateTime.SpecifyKind(sport.Date, DateTimeKind.Utc);
-        }
 
+        sport.CreatedBy = CurrentUsername;
         sport.CreatedAt = DateTime.UtcNow;
         _context.Sports.Add(sport);
         await _context.SaveChangesAsync();
         return Ok(sport);
     }
 
-    // PUT: api/Sports/{id}
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(int id, [FromBody] Sport sport)
     {
-        // Check if sport exists
         var existingSport = await _context.Sports.FindAsync(id);
         if (existingSport == null)
             return NotFound(new { message = "Sport not found" });
 
-        // Validate required fields
+        if (!CanDeleteAny && existingSport.CreatedBy != CurrentUsername)
+            return Forbid();
+
         if (string.IsNullOrWhiteSpace(sport.Name))
             return BadRequest(new { message = "Match Name is required" });
 
@@ -80,13 +81,9 @@ public class SportsController : ControllerBase
         if (string.IsNullOrWhiteSpace(sport.Time))
             return BadRequest(new { message = "Time is required" });
 
-        // Convert date to UTC
         if (sport.Date.Kind != DateTimeKind.Utc)
-        {
             sport.Date = DateTime.SpecifyKind(sport.Date, DateTimeKind.Utc);
-        }
 
-        // Update fields
         existingSport.Name = sport.Name;
         existingSport.Date = sport.Date;
         existingSport.Time = sport.Time;
@@ -95,11 +92,9 @@ public class SportsController : ControllerBase
         existingSport.Status = sport.Status;
 
         await _context.SaveChangesAsync();
-
         return Ok(existingSport);
     }
 
-    // DELETE: api/Sports/{id}
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {
@@ -107,12 +102,14 @@ public class SportsController : ControllerBase
         if (sport == null)
             return NotFound();
 
+        if (!CanDeleteAny && sport.CreatedBy != CurrentUsername)
+            return Forbid();
+
         _context.Sports.Remove(sport);
         await _context.SaveChangesAsync();
         return NoContent();
     }
 
-    // GET: api/Sports/active
     [HttpGet("active")]
     public async Task<ActionResult<IEnumerable<Sport>>> GetActive()
     {

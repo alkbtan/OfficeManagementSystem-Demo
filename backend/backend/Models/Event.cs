@@ -37,5 +37,8 @@ public class Event
     [MaxLength(500)]
     public string Equipment { get; set; } = string.Empty;
 
+    [MaxLength(50)]
+    public string CreatedBy { get; set; } = string.Empty;
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

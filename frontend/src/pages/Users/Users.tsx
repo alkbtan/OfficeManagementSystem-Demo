@@ -27,11 +27,17 @@ function Users() {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [newPassword, setNewPassword] = useState("");
   const [snackbar, setSnackbar] = useState({
-    open: false, message: "", severity: "success" as "success" | "error",
+    open: false,
+    message: "",
+    severity: "success" as "success" | "error",
   });
 
   const [formData, setFormData] = useState({
-    name: "", email: "", password: "", role: "User", status: "Active",
+    username: "",
+    email: "",
+    password: "",
+    role: "User",
+    status: "Active",
   });
 
   const roles = ["User", "Admin", "Manager"];
@@ -50,7 +56,9 @@ function Users() {
     }
   };
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => {
+    loadData();
+  }, []);
 
   const showSnackbar = (message: string, severity: "success" | "error") => {
     setSnackbar({ open: true, message, severity });
@@ -59,10 +67,22 @@ function Users() {
   const handleOpenDialog = (user?: User) => {
     if (user) {
       setEditingUser(user);
-      setFormData({ name: user.name || "", email: user.email || "", password: "", role: user.role || "User", status: user.status || "Active" });
+      setFormData({
+        username: user.username || "",
+        email: user.email || "",
+        password: "",
+        role: user.role || "User",
+        status: user.status || "Active",
+      });
     } else {
       setEditingUser(null);
-      setFormData({ name: "", email: "", password: "", role: "User", status: "Active" });
+      setFormData({
+        username: "",
+        email: "",
+        password: "",
+        role: "User",
+        status: "Active",
+      });
     }
     setOpenDialog(true);
   };
@@ -97,21 +117,34 @@ function Users() {
       handleCloseResetPassword();
     } catch (error: any) {
       console.error("Error resetting password:", error);
-      const errorMessage = error?.response?.data?.message || t("common.error");
+      const errorMessage =
+        error?.response?.data?.message || t("common.error");
       showSnackbar(errorMessage, "error");
     }
   };
 
   const handleSaveUser = async () => {
-    if (!formData.name.trim()) { showSnackbar(t("common.name") + " " + t("common.required"), "error"); return; }
-    if (!formData.email.trim()) { showSnackbar(t("users.email") + " " + t("common.required"), "error"); return; }
-    if (!editingUser && !formData.password.trim()) { showSnackbar(t("users.password") + " " + t("common.required"), "error"); return; }
+    if (!formData.username.trim()) {
+      showSnackbar(`${t("users.username")} ${t("common.required")}`, "error");
+      return;
+    }
+    if (!formData.email.trim()) {
+      showSnackbar(`${t("users.email")} ${t("common.required")}`, "error");
+      return;
+    }
+    if (!editingUser && !formData.password.trim()) {
+      showSnackbar(`${t("users.password")} ${t("common.required")}`, "error");
+      return;
+    }
 
     try {
       const dataToSend = {
-        name: formData.name, email: formData.email,
+        username: formData.username,
+        name: formData.username, // Use username as name automatically
+        email: formData.email,
         password: formData.password || undefined,
-        role: formData.role, status: formData.status,
+        role: formData.role,
+        status: formData.status,
       };
 
       if (editingUser) {
@@ -125,7 +158,8 @@ function Users() {
       loadData();
     } catch (error: any) {
       console.error("Error saving user:", error);
-      const errorMessage = error?.response?.data?.message || t("common.error");
+      const errorMessage =
+        error?.response?.data?.message || t("common.error");
       showSnackbar(errorMessage, "error");
     }
   };
@@ -145,9 +179,12 @@ function Users() {
 
   const getRoleColor = (role: string) => {
     switch (role) {
-      case "Admin": return "error";
-      case "Manager": return "warning";
-      default: return "info";
+      case "Admin":
+        return "error";
+      case "Manager":
+        return "warning";
+      default:
+        return "info";
     }
   };
 
@@ -157,7 +194,14 @@ function Users() {
 
   if (loading) {
     return (
-      <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "60vh" }}>
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          minHeight: "60vh",
+        }}
+      >
         <CircularProgress size={60} />
       </Box>
     );
@@ -165,18 +209,42 @@ function Users() {
 
   return (
     <Box sx={{ p: 3, bgcolor: "#f5f7fa", minHeight: "100vh" }}>
-      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 4 }}>
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          mb: 4,
+        }}
+      >
         <Box>
           <Typography variant="h4" sx={{ fontWeight: 700, color: "#1a237e" }}>
             👤 {t("users.title")}
           </Typography>
-          <Typography sx={{ color: "#666", mt: 0.5 }}>{t("users.subtitle")}</Typography>
+          <Typography sx={{ color: "#666", mt: 0.5 }}>
+            {t("users.subtitle")}
+          </Typography>
         </Box>
         <Box sx={{ display: "flex", gap: 2 }}>
-          <Button variant="outlined" startIcon={<RefreshIcon />} onClick={loadData} sx={{ borderRadius: 2, textTransform: "none" }}>
+          <Button
+            variant="outlined"
+            startIcon={<RefreshIcon />}
+            onClick={loadData}
+            sx={{ borderRadius: 2, textTransform: "none" }}
+          >
             {t("common.refresh")}
           </Button>
-          <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpenDialog()} sx={{ borderRadius: 2, textTransform: "none", bgcolor: "#1a237e", "&:hover": { bgcolor: "#0d1445" } }}>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => handleOpenDialog()}
+            sx={{
+              borderRadius: 2,
+              textTransform: "none",
+              bgcolor: "#1a237e",
+              "&:hover": { bgcolor: "#0d1445" },
+            }}
+          >
             {t("users.addUser")}
           </Button>
         </Box>
@@ -184,66 +252,170 @@ function Users() {
 
       <Grid container spacing={3} sx={{ mb: 4 }}>
         <Grid item xs={12} sm={6} md={4}>
-          <Card sx={{ borderRadius: 3, boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}>
+          <Card
+            sx={{
+              borderRadius: 3,
+              boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
+            }}
+          >
             <CardContent>
-              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
                 <Box>
-                  <Typography variant="body2" sx={{ color: "#666", fontWeight: 500 }}>{t("users.totalUsers")}</Typography>
-                  <Typography variant="h4" sx={{ fontWeight: 700, color: "#1a237e", mt: 0.5 }}>{users.length}</Typography>
+                  <Typography
+                    variant="body2"
+                    sx={{ color: "#666", fontWeight: 500 }}
+                  >
+                    {t("users.totalUsers")}
+                  </Typography>
+                  <Typography
+                    variant="h4"
+                    sx={{ fontWeight: 700, color: "#1a237e", mt: 0.5 }}
+                  >
+                    {users.length}
+                  </Typography>
                 </Box>
-                <Avatar sx={{ bgcolor: "#e8eaf6", width: 48, height: 48, color: "#1a237e" }}><PersonIcon /></Avatar>
+                <Avatar
+                  sx={{
+                    bgcolor: "#e8eaf6",
+                    width: 48,
+                    height: 48,
+                    color: "#1a237e",
+                  }}
+                >
+                  <PersonIcon />
+                </Avatar>
               </Box>
             </CardContent>
           </Card>
         </Grid>
         <Grid item xs={12} sm={6} md={4}>
-          <Card sx={{ borderRadius: 3, boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}>
+          <Card
+            sx={{
+              borderRadius: 3,
+              boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
+            }}
+          >
             <CardContent>
-              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
                 <Box>
-                  <Typography variant="body2" sx={{ color: "#666", fontWeight: 500 }}>{t("users.admins")}</Typography>
-                  <Typography variant="h4" sx={{ fontWeight: 700, color: "#d32f2f", mt: 0.5 }}>
-                    {users.filter(u => u.role === "Admin").length}
+                  <Typography
+                    variant="body2"
+                    sx={{ color: "#666", fontWeight: 500 }}
+                  >
+                    {t("users.admins")}
+                  </Typography>
+                  <Typography
+                    variant="h4"
+                    sx={{ fontWeight: 700, color: "#d32f2f", mt: 0.5 }}
+                  >
+                    {users.filter((u) => u.role === "Admin").length}
                   </Typography>
                 </Box>
-                <Avatar sx={{ bgcolor: "#ffebee", width: 48, height: 48, color: "#d32f2f" }}><AdminPanelSettingsIcon /></Avatar>
+                <Avatar
+                  sx={{
+                    bgcolor: "#ffebee",
+                    width: 48,
+                    height: 48,
+                    color: "#d32f2f",
+                  }}
+                >
+                  <AdminPanelSettingsIcon />
+                </Avatar>
               </Box>
             </CardContent>
           </Card>
         </Grid>
         <Grid item xs={12} sm={6} md={4}>
-          <Card sx={{ borderRadius: 3, boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}>
+          <Card
+            sx={{
+              borderRadius: 3,
+              boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
+            }}
+          >
             <CardContent>
-              <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
                 <Box>
-                  <Typography variant="body2" sx={{ color: "#666", fontWeight: 500 }}>{t("users.activeUsers")}</Typography>
-                  <Typography variant="h4" sx={{ fontWeight: 700, color: "#4caf50", mt: 0.5 }}>
-                    {users.filter(u => u.status === "Active").length}
+                  <Typography
+                    variant="body2"
+                    sx={{ color: "#666", fontWeight: 500 }}
+                  >
+                    {t("users.activeUsers")}
+                  </Typography>
+                  <Typography
+                    variant="h4"
+                    sx={{ fontWeight: 700, color: "#4caf50", mt: 0.5 }}
+                  >
+                    {users.filter((u) => u.status === "Active").length}
                   </Typography>
                 </Box>
-                <Avatar sx={{ bgcolor: "#e8f5e9", width: 48, height: 48, color: "#4caf50" }}><PersonIcon /></Avatar>
+                <Avatar
+                  sx={{
+                    bgcolor: "#e8f5e9",
+                    width: 48,
+                    height: 48,
+                    color: "#4caf50",
+                  }}
+                >
+                  <PersonIcon />
+                </Avatar>
               </Box>
             </CardContent>
           </Card>
         </Grid>
       </Grid>
 
-      <Paper sx={{ borderRadius: 3, overflow: "hidden", boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}>
+      <Paper
+        sx={{
+          borderRadius: 3,
+          overflow: "hidden",
+          boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
+        }}
+      >
         {users.length === 0 ? (
           <Box sx={{ p: 6, textAlign: "center" }}>
             <PersonIcon sx={{ fontSize: 64, color: "#ccc", mb: 2 }} />
-            <Typography variant="h6" sx={{ color: "#666" }}>{t("common.noItems")}</Typography>
+            <Typography variant="h6" sx={{ color: "#666" }}>
+              {t("common.noItems")}
+            </Typography>
           </Box>
         ) : (
           <TableContainer>
             <Table>
               <TableHead sx={{ bgcolor: "#f5f7fa" }}>
                 <TableRow>
-                  <TableCell sx={{ fontWeight: 600, color: "#1a237e" }}>{t("users.user")}</TableCell>
-                  <TableCell sx={{ fontWeight: 600, color: "#1a237e" }}>{t("users.email")}</TableCell>
-                  <TableCell sx={{ fontWeight: 600, color: "#1a237e" }}>{t("users.role")}</TableCell>
-                  <TableCell sx={{ fontWeight: 600, color: "#1a237e" }}>{t("common.status")}</TableCell>
-                  <TableCell sx={{ fontWeight: 600, color: "#1a237e" }}>{t("common.actions")}</TableCell>
+                  <TableCell sx={{ fontWeight: 600, color: "#1a237e" }}>
+                    {t("users.username")}
+                  </TableCell>
+                  <TableCell sx={{ fontWeight: 600, color: "#1a237e" }}>
+                    {t("users.email")}
+                  </TableCell>
+                  <TableCell sx={{ fontWeight: 600, color: "#1a237e" }}>
+                    {t("users.role")}
+                  </TableCell>
+                  <TableCell sx={{ fontWeight: 600, color: "#1a237e" }}>
+                    {t("common.status")}
+                  </TableCell>
+                  <TableCell sx={{ fontWeight: 600, color: "#1a237e" }}>
+                    {t("common.actions")}
+                  </TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -251,8 +423,18 @@ function Users() {
                   <TableRow key={user.id} sx={{ "&:hover": { bgcolor: "#f8f9ff" } }}>
                     <TableCell>
                       <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                        <Avatar sx={{ bgcolor: "#1a237e", width: 36, height: 36 }}>{user.name?.[0] || "U"}</Avatar>
-                        <Typography sx={{ fontWeight: 600 }}>{user.name}</Typography>
+                        <Avatar
+                          sx={{
+                            bgcolor: "#1a237e",
+                            width: 36,
+                            height: 36,
+                          }}
+                        >
+                          {user.username?.[0]?.toUpperCase() || "U"}
+                        </Avatar>
+                        <Typography sx={{ fontWeight: 600 }}>
+                          {user.username}
+                        </Typography>
                       </Box>
                     </TableCell>
                     <TableCell>
@@ -262,25 +444,59 @@ function Users() {
                       </Box>
                     </TableCell>
                     <TableCell>
-                      <Chip label={user.role} size="small" color={getRoleColor(user.role) as any} sx={{ fontWeight: 500, borderRadius: 2 }} />
+                      <Chip
+                        label={user.role}
+                        size="small"
+                        color={getRoleColor(user.role) as any}
+                        sx={{ fontWeight: 500, borderRadius: 2 }}
+                      />
                     </TableCell>
                     <TableCell>
-                      <Chip label={user.status} size="small" color={getStatusColor(user.status) as any} sx={{ fontWeight: 500, borderRadius: 2 }} />
+                      <Chip
+                        label={user.status}
+                        size="small"
+                        color={getStatusColor(user.status) as any}
+                        sx={{ fontWeight: 500, borderRadius: 2 }}
+                      />
                     </TableCell>
                     <TableCell>
                       <Box sx={{ display: "flex", gap: 1 }}>
                         <Tooltip title={t("common.edit")}>
-                          <IconButton size="small" onClick={() => handleOpenDialog(user)} sx={{ color: "#1a237e", bgcolor: "#e8eaf6", "&:hover": { bgcolor: "#c5cae9" } }}>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleOpenDialog(user)}
+                            sx={{
+                              color: "#1a237e",
+                              bgcolor: "#e8eaf6",
+                              "&:hover": { bgcolor: "#c5cae9" },
+                            }}
+                          >
                             <EditIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
                         <Tooltip title={t("users.resetPassword")}>
-                          <IconButton size="small" onClick={() => handleOpenResetPassword(user)} sx={{ color: "#e65100", bgcolor: "#fff3e0", "&:hover": { bgcolor: "#ffe0b2" } }}>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleOpenResetPassword(user)}
+                            sx={{
+                              color: "#e65100",
+                              bgcolor: "#fff3e0",
+                              "&:hover": { bgcolor: "#ffe0b2" },
+                            }}
+                          >
                             <VpnKeyIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
                         <Tooltip title={t("common.delete")}>
-                          <IconButton size="small" onClick={() => handleDeleteUser(user.id)} sx={{ color: "#f44336", bgcolor: "#ffebee", "&:hover": { bgcolor: "#ffcdd2" } }}>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleDeleteUser(user.id)}
+                            sx={{
+                              color: "#f44336",
+                              bgcolor: "#ffebee",
+                              "&:hover": { bgcolor: "#ffcdd2" },
+                            }}
+                          >
                             <DeleteIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
@@ -294,36 +510,124 @@ function Users() {
         )}
       </Paper>
 
-      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
+      <Dialog
+        open={openDialog}
+        onClose={handleCloseDialog}
+        maxWidth="sm"
+        fullWidth
+      >
         <DialogTitle sx={{ bgcolor: "#1a237e", color: "white" }}>
-          {editingUser ? `✏️ ${t("users.editUser")}` : `➕ ${t("users.addUser")}`}
+          {editingUser
+            ? `✏️ ${t("users.editUser")}`
+            : `➕ ${t("users.addUser")}`}
         </DialogTitle>
         <DialogContent sx={{ mt: 2 }}>
-          <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
-            <TextField label={t("common.name")} fullWidth required value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
-            <TextField label={t("users.email")} fullWidth required type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
+          <Box
+            sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}
+          >
+            <TextField
+              label={t("users.username")}
+              fullWidth
+              required
+              value={formData.username}
+              onChange={(e) =>
+                setFormData({ ...formData, username: e.target.value })
+              }
+            />
+            <TextField
+              label={t("users.email")}
+              fullWidth
+              required
+              type="email"
+              value={formData.email}
+              onChange={(e) =>
+                setFormData({ ...formData, email: e.target.value })
+              }
+            />
             {!editingUser ? (
-              <TextField label={t("users.password")} fullWidth required type="password" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} />
+              <TextField
+                label={t("users.password")}
+                fullWidth
+                required
+                type="password"
+                value={formData.password}
+                onChange={(e) =>
+                  setFormData({ ...formData, password: e.target.value })
+                }
+              />
             ) : (
-              <TextField label={t("users.keepPasswordEmpty")} fullWidth type="password" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} />
+              <TextField
+                label={t("users.keepPasswordEmpty")}
+                fullWidth
+                type="password"
+                value={formData.password}
+                onChange={(e) =>
+                  setFormData({ ...formData, password: e.target.value })
+                }
+              />
             )}
-            <TextField select label={t("users.role")} fullWidth value={formData.role} onChange={(e) => setFormData({ ...formData, role: e.target.value })}>
-              {roles.map((role) => (<MenuItem key={role} value={role}>{role}</MenuItem>))}
+            <TextField
+              select
+              label={t("users.role")}
+              fullWidth
+              value={formData.role}
+              onChange={(e) =>
+                setFormData({ ...formData, role: e.target.value })
+              }
+            >
+              {roles.map((role) => (
+                <MenuItem key={role} value={role}>
+                  {role}
+                </MenuItem>
+              ))}
             </TextField>
-            <TextField select label={t("common.status")} fullWidth value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value })}>
-              {statuses.map((status) => (<MenuItem key={status} value={status}>{status}</MenuItem>))}
+            <TextField
+              select
+              label={t("common.status")}
+              fullWidth
+              value={formData.status}
+              onChange={(e) =>
+                setFormData({ ...formData, status: e.target.value })
+              }
+            >
+              {statuses.map((status) => (
+                <MenuItem key={status} value={status}>
+                  {status}
+                </MenuItem>
+              ))}
             </TextField>
           </Box>
         </DialogContent>
         <DialogActions sx={{ p: 3, gap: 1 }}>
-          <Button onClick={handleCloseDialog} variant="outlined" color="inherit">{t("common.cancel")}</Button>
-          <Button variant="contained" onClick={handleSaveUser} sx={{ bgcolor: "#1a237e" }}>
+          <Button
+            onClick={handleCloseDialog}
+            variant="outlined"
+            color="inherit"
+            sx={{ borderRadius: 2, textTransform: "none" }}
+          >
+            {t("common.cancel")}
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleSaveUser}
+            sx={{
+              borderRadius: 2,
+              textTransform: "none",
+              bgcolor: "#1a237e",
+              "&:hover": { bgcolor: "#0d1445" },
+            }}
+          >
             {editingUser ? t("common.update") : t("common.add")}
           </Button>
         </DialogActions>
       </Dialog>
 
-      <Dialog open={openResetPasswordDialog} onClose={handleCloseResetPassword} maxWidth="sm" fullWidth>
+      <Dialog
+        open={openResetPasswordDialog}
+        onClose={handleCloseResetPassword}
+        maxWidth="sm"
+        fullWidth
+      >
         <DialogTitle sx={{ bgcolor: "#e65100", color: "white" }}>
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
             <VpnKeyIcon />
@@ -333,26 +637,55 @@ function Users() {
         <DialogContent sx={{ mt: 2 }}>
           <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
             <Typography variant="body2" sx={{ color: "#666" }}>
-              {selectedUser?.name} ({selectedUser?.email})
+              {selectedUser?.username} ({selectedUser?.email})
             </Typography>
             <TextField
-              label={t("users.newPassword")} fullWidth type="password" required
-              value={newPassword} onChange={(e) => setNewPassword(e.target.value)}
+              label={t("users.newPassword")}
+              fullWidth
+              type="password"
+              required
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
               placeholder={t("users.passwordPlaceholder")}
               helperText={t("users.passwordHelper")}
             />
           </Box>
         </DialogContent>
         <DialogActions sx={{ p: 3, gap: 1 }}>
-          <Button onClick={handleCloseResetPassword} variant="outlined" color="inherit">{t("common.cancel")}</Button>
-          <Button variant="contained" onClick={handleResetPassword} sx={{ bgcolor: "#e65100", "&:hover": { bgcolor: "#bf360c" } }}>
+          <Button
+            onClick={handleCloseResetPassword}
+            variant="outlined"
+            color="inherit"
+            sx={{ borderRadius: 2, textTransform: "none" }}
+          >
+            {t("common.cancel")}
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleResetPassword}
+            sx={{
+              borderRadius: 2,
+              textTransform: "none",
+              bgcolor: "#e65100",
+              "&:hover": { bgcolor: "#bf360c" },
+            }}
+          >
             {t("users.resetPassword")}
           </Button>
         </DialogActions>
       </Dialog>
 
-      <Snackbar open={snackbar.open} autoHideDuration={4000} onClose={() => setSnackbar({ ...snackbar, open: false })} anchorOrigin={{ vertical: "bottom", horizontal: "right" }}>
-        <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })} sx={{ borderRadius: 2 }}>
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+      >
+        <Alert
+          severity={snackbar.severity}
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          sx={{ borderRadius: 2 }}
+        >
           {snackbar.message}
         </Alert>
       </Snackbar>

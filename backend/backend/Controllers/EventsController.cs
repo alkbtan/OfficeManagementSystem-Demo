@@ -1,10 +1,13 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using OfficeManagementAPI.Data;
 using OfficeManagementAPI.Models;
+using System.Security.Claims;
 
 namespace OfficeManagementAPI.Controllers;
 
+[Authorize]
 [ApiController]
 [Route("api/[controller]")]
 public class EventsController : ControllerBase
@@ -16,7 +19,10 @@ public class EventsController : ControllerBase
         _context = context;
     }
 
-    // GET: api/Events
+    private string CurrentUsername => User.FindFirst(ClaimTypes.Name)?.Value ?? "";
+    private string CurrentRole => User.FindFirst(ClaimTypes.Role)?.Value ?? "";
+    private bool CanDeleteAny => CurrentRole == "Admin" || CurrentRole == "Manager";
+
     [HttpGet]
     public async Task<ActionResult<IEnumerable<Event>>> GetAll()
     {
@@ -25,7 +31,6 @@ public class EventsController : ControllerBase
             .ToListAsync();
     }
 
-    // GET: api/Events/{id}
     [HttpGet("{id}")]
     public async Task<ActionResult<Event>> GetById(int id)
     {
@@ -35,11 +40,9 @@ public class EventsController : ControllerBase
         return eventItem;
     }
 
-    // POST: api/Events
     [HttpPost]
     public async Task<ActionResult<Event>> Create([FromBody] Event eventItem)
     {
-        // Validate required fields
         if (string.IsNullOrWhiteSpace(eventItem.Title))
             return BadRequest(new { message = "Title is required" });
 
@@ -55,28 +58,26 @@ public class EventsController : ControllerBase
         if (string.IsNullOrWhiteSpace(eventItem.Type))
             return BadRequest(new { message = "Type is required" });
 
-        // Convert date to UTC
         if (eventItem.EventDate.Kind != DateTimeKind.Utc)
-        {
             eventItem.EventDate = DateTime.SpecifyKind(eventItem.EventDate, DateTimeKind.Utc);
-        }
 
+        eventItem.CreatedBy = CurrentUsername;
         eventItem.CreatedAt = DateTime.UtcNow;
         _context.Events.Add(eventItem);
         await _context.SaveChangesAsync();
         return Ok(eventItem);
     }
 
-    // PUT: api/Events/{id}
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(int id, [FromBody] Event eventItem)
     {
-        // Check if event exists
         var existingEvent = await _context.Events.FindAsync(id);
         if (existingEvent == null)
             return NotFound(new { message = "Event not found" });
 
-        // Validate required fields
+        if (!CanDeleteAny && existingEvent.CreatedBy != CurrentUsername)
+            return Forbid();
+
         if (string.IsNullOrWhiteSpace(eventItem.Title))
             return BadRequest(new { message = "Title is required" });
 
@@ -92,13 +93,9 @@ public class EventsController : ControllerBase
         if (string.IsNullOrWhiteSpace(eventItem.Type))
             return BadRequest(new { message = "Type is required" });
 
-        // Convert date to UTC
         if (eventItem.EventDate.Kind != DateTimeKind.Utc)
-        {
             eventItem.EventDate = DateTime.SpecifyKind(eventItem.EventDate, DateTimeKind.Utc);
-        }
 
-        // Update fields
         existingEvent.Title = eventItem.Title;
         existingEvent.Description = eventItem.Description ?? string.Empty;
         existingEvent.EventDate = eventItem.EventDate;
@@ -113,7 +110,6 @@ public class EventsController : ControllerBase
         return Ok(existingEvent);
     }
 
-    // DELETE: api/Events/{id}
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {
@@ -121,12 +117,14 @@ public class EventsController : ControllerBase
         if (eventItem == null)
             return NotFound();
 
+        if (!CanDeleteAny && eventItem.CreatedBy != CurrentUsername)
+            return Forbid();
+
         _context.Events.Remove(eventItem);
         await _context.SaveChangesAsync();
         return NoContent();
     }
 
-    // GET: api/Events/upcoming
     [HttpGet("upcoming")]
     public async Task<ActionResult<IEnumerable<Event>>> GetUpcoming()
     {

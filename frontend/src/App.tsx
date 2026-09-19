@@ -16,13 +16,21 @@ import Sports from "./pages/Sports/Sports";
 import Documents from "./pages/Documents/Documents";
 import Users from "./pages/Users/Users";
 import Settings from "./pages/Settings/Settings";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
-        <Route path="/" element={<MainLayout />}>
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <MainLayout />
+            </ProtectedRoute>
+          }
+        >
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="employees" element={<Employees />} />
@@ -37,7 +45,14 @@ function App() {
           <Route path="events" element={<Events />} />
           <Route path="sports" element={<Sports />} />
           <Route path="documents" element={<Documents />} />
-          <Route path="users" element={<Users />} />
+          <Route
+            path="users"
+            element={
+              <ProtectedRoute allowedRoles={["Admin", "Manager"]}>
+                <Users />
+              </ProtectedRoute>
+            }
+          />
           <Route path="settings" element={<Settings />} />
         </Route>
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

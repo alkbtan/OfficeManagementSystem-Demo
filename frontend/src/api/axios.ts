@@ -1,4 +1,5 @@
 import axios from "axios";
+import i18n from "../i18n";
 
 const api = axios.create({
   baseURL: "http://localhost:5149/api",
@@ -16,8 +17,6 @@ api.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
     }
 
-    // ✅ FIX: Remove Content-Type for FormData requests
-    // Let Axios set the correct multipart/form-data with boundary
     if (config.data instanceof FormData) {
       delete config.headers["Content-Type"];
     }
@@ -29,30 +28,41 @@ api.interceptors.request.use(
   }
 );
 
-// Handle 401 responses
+// Handle error responses
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Handle network errors
+    // Network error
     if (!error.response) {
       console.error("Network error - please check if backend is running");
-      return Promise.reject(new Error("Network error - please check if backend is running"));
+      return Promise.reject(
+        new Error(i18n.t("errors.network"))
+      );
     }
 
-    // Handle 401 Unauthorized
-    if (error.response.status === 401) {
+    const status = error.response.status;
+
+    // 401 Unauthorized → logout
+    if (status === 401) {
       localStorage.removeItem("token");
       localStorage.removeItem("user");
       window.location.href = "/login";
     }
 
-    // Handle 404 Not Found
-    if (error.response.status === 404) {
+    // 403 Forbidden → permission message
+    if (status === 403) {
+      error.response.data = {
+        message: i18n.t("errors.forbidden"),
+      };
+    }
+
+    // 404 Not Found
+    if (status === 404) {
       console.error("API endpoint not found:", error.config?.url);
     }
 
-    // Handle 500 Internal Server Error
-    if (error.response.status >= 500) {
+    // 500+ Server error
+    if (status >= 500) {
       console.error("Server error:", error.response.data);
     }
 

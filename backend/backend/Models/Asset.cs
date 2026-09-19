@@ -26,9 +26,11 @@ public class Asset
     [MaxLength(100)]
     public string? AssignedTo { get; set; }
 
-    // ✅ NEW FIELDS
     [MaxLength(100)]
     public string? Location { get; set; }
+
+    [MaxLength(50)]
+    public string CreatedBy { get; set; } = string.Empty;
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

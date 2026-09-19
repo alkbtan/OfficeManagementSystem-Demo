@@ -15,6 +15,7 @@ public static class SeedData
             context.Users.AddRange(
                 new User
                 {
+                    Username = "kinoura.youssef",
                     Name = "Kinoura Youssef",
                     Email = "kinour.youssef@testflyqa.com",
                     Password = BCrypt.Net.BCrypt.HashPassword("123456"),
@@ -24,6 +25,7 @@ public static class SeedData
                 },
                 new User
                 {
+                    Username = "admin",
                     Name = "Admin User",
                     Email = "admin@example.com",
                     Password = BCrypt.Net.BCrypt.HashPassword("admin123"),
@@ -33,6 +35,7 @@ public static class SeedData
                 },
                 new User
                 {
+                    Username = "ahmed.hassan",
                     Name = "Ahmed Hassan",
                     Email = "ahmed.hassan@testflyqa.com",
                     Password = BCrypt.Net.BCrypt.HashPassword("123456"),
@@ -42,6 +45,7 @@ public static class SeedData
                 },
                 new User
                 {
+                    Username = "sara.ali",
                     Name = "Sara Ali",
                     Email = "sara.ali@testflyqa.com",
                     Password = BCrypt.Net.BCrypt.HashPassword("123456"),

@@ -1,10 +1,13 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using OfficeManagementAPI.Data;
 using OfficeManagementAPI.Models;
+using System.Security.Claims;
 
 namespace OfficeManagementAPI.Controllers;
 
+[Authorize]
 [ApiController]
 [Route("api/[controller]")]
 public class AirConditionersController : ControllerBase
@@ -16,7 +19,10 @@ public class AirConditionersController : ControllerBase
         _context = context;
     }
 
-    // GET: api/AirConditioners
+    private string CurrentUsername => User.FindFirst(ClaimTypes.Name)?.Value ?? "";
+    private string CurrentRole => User.FindFirst(ClaimTypes.Role)?.Value ?? "";
+    private bool CanDeleteAny => CurrentRole == "Admin" || CurrentRole == "Manager";
+
     [HttpGet]
     public async Task<ActionResult<IEnumerable<AirConditioner>>> GetAll()
     {
@@ -26,7 +32,6 @@ public class AirConditionersController : ControllerBase
             .ToListAsync();
     }
 
-    // GET: api/AirConditioners/{id}
     [HttpGet("{id}")]
     public async Task<ActionResult<AirConditioner>> GetById(int id)
     {
@@ -40,7 +45,6 @@ public class AirConditionersController : ControllerBase
         return unit;
     }
 
-    // POST: api/AirConditioners
     [HttpPost]
     public async Task<ActionResult<AirConditioner>> Create([FromBody] AirConditioner unit)
     {
@@ -53,6 +57,7 @@ public class AirConditionersController : ControllerBase
         if (string.IsNullOrWhiteSpace(unit.Brand))
             return BadRequest(new { message = "Brand is required" });
 
+        unit.CreatedBy = CurrentUsername;
         unit.CreatedAt = DateTime.UtcNow;
         _context.AirConditioners.Add(unit);
         await _context.SaveChangesAsync();
@@ -60,16 +65,16 @@ public class AirConditionersController : ControllerBase
         return Ok(unit);
     }
 
-    // PUT: api/AirConditioners/{id}
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(int id, [FromBody] AirConditioner unit)
     {
-        // Check if unit exists
         var existingUnit = await _context.AirConditioners.FindAsync(id);
         if (existingUnit == null)
             return NotFound(new { message = "AC unit not found" });
 
-        // Validate required fields
+        if (!CanDeleteAny && existingUnit.CreatedBy != CurrentUsername)
+            return Forbid();
+
         if (string.IsNullOrWhiteSpace(unit.Name))
             return BadRequest(new { message = "Name is required" });
 
@@ -79,7 +84,6 @@ public class AirConditionersController : ControllerBase
         if (string.IsNullOrWhiteSpace(unit.Brand))
             return BadRequest(new { message = "Brand is required" });
 
-        // Update fields
         existingUnit.Name = unit.Name;
         existingUnit.Location = unit.Location;
         existingUnit.Brand = unit.Brand;
@@ -92,11 +96,9 @@ public class AirConditionersController : ControllerBase
         existingUnit.MaintenanceCount = unit.MaintenanceCount;
 
         await _context.SaveChangesAsync();
-
         return Ok(existingUnit);
     }
 
-    // DELETE: api/AirConditioners/{id}
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {
@@ -104,13 +106,14 @@ public class AirConditionersController : ControllerBase
         if (unit == null)
             return NotFound();
 
+        if (!CanDeleteAny && unit.CreatedBy != CurrentUsername)
+            return Forbid();
+
         _context.AirConditioners.Remove(unit);
         await _context.SaveChangesAsync();
-
         return NoContent();
     }
 
-    // GET: api/AirConditioners/stats
     [HttpGet("stats")]
     public async Task<ActionResult<object>> GetStats()
     {
@@ -119,12 +122,6 @@ public class AirConditionersController : ControllerBase
         var maintenance = await _context.AirConditioners.CountAsync(a => a.Status == "Under Maintenance");
         var totalCost = await _context.AirConditioners.SumAsync(a => a.TotalMaintenanceCost);
 
-        return Ok(new
-        {
-            total,
-            operational,
-            maintenance,
-            totalCost
-        });
+        return Ok(new { total, operational, maintenance, totalCost });
     }
 }

@@ -1,7 +1,7 @@
 import api from "./axios";
 
 export interface LoginRequest {
-  email: string;
+  username: string;
   password: string;
 }
 
@@ -9,6 +9,7 @@ export interface LoginResponse {
   token: string;
   user: {
     id: number;
+    username: string;
     name: string;
     email: string;
     role: string;

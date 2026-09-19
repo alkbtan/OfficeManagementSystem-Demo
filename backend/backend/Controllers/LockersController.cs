@@ -1,10 +1,13 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using OfficeManagementAPI.Data;
 using OfficeManagementAPI.Models;
+using System.Security.Claims;
 
 namespace OfficeManagementAPI.Controllers;
 
+[Authorize]
 [ApiController]
 [Route("api/[controller]")]
 public class LockersController : ControllerBase
@@ -16,7 +19,10 @@ public class LockersController : ControllerBase
         _context = context;
     }
 
-    // GET: api/Lockers
+    private string CurrentUsername => User.FindFirst(ClaimTypes.Name)?.Value ?? "";
+    private string CurrentRole => User.FindFirst(ClaimTypes.Role)?.Value ?? "";
+    private bool CanDeleteAny => CurrentRole == "Admin" || CurrentRole == "Manager";
+
     [HttpGet]
     public async Task<ActionResult<IEnumerable<Locker>>> GetAll()
     {
@@ -25,7 +31,6 @@ public class LockersController : ControllerBase
             .ToListAsync();
     }
 
-    // GET: api/Lockers/{id}
     [HttpGet("{id}")]
     public async Task<ActionResult<Locker>> GetById(int id)
     {
@@ -35,23 +40,21 @@ public class LockersController : ControllerBase
         return locker;
     }
 
-    // POST: api/Lockers
     [HttpPost]
     public async Task<ActionResult<Locker>> Create([FromBody] Locker locker)
     {
-        // Validate required fields
         if (string.IsNullOrWhiteSpace(locker.Number))
             return BadRequest(new { message = "Locker number is required" });
 
         if (string.IsNullOrWhiteSpace(locker.Location))
             return BadRequest(new { message = "Location is required" });
 
-        // Check for duplicate locker number
         var existing = await _context.Lockers
             .FirstOrDefaultAsync(l => l.Number == locker.Number);
         if (existing != null)
             return BadRequest(new { message = $"Locker {locker.Number} already exists" });
 
+        locker.CreatedBy = CurrentUsername;
         locker.CreatedAt = DateTime.UtcNow;
         _context.Lockers.Add(locker);
         await _context.SaveChangesAsync();
@@ -59,29 +62,27 @@ public class LockersController : ControllerBase
         return Ok(locker);
     }
 
-    // PUT: api/Lockers/{id}
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(int id, [FromBody] Locker locker)
     {
-        // Check if locker exists
         var existingLocker = await _context.Lockers.FindAsync(id);
         if (existingLocker == null)
             return NotFound(new { message = "Locker not found" });
 
-        // Validate required fields
+        if (!CanDeleteAny && existingLocker.CreatedBy != CurrentUsername)
+            return Forbid();
+
         if (string.IsNullOrWhiteSpace(locker.Number))
             return BadRequest(new { message = "Locker number is required" });
 
         if (string.IsNullOrWhiteSpace(locker.Location))
             return BadRequest(new { message = "Location is required" });
 
-        // Check for duplicate locker number (excluding current locker)
         var duplicate = await _context.Lockers
             .FirstOrDefaultAsync(l => l.Number == locker.Number && l.Id != id);
         if (duplicate != null)
             return BadRequest(new { message = $"Locker {locker.Number} already exists" });
 
-        // Update fields
         existingLocker.Number = locker.Number;
         existingLocker.Location = locker.Location;
         existingLocker.Status = locker.Status;
@@ -94,13 +95,15 @@ public class LockersController : ControllerBase
         return Ok(existingLocker);
     }
 
-    // DELETE: api/Lockers/{id}
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {
         var locker = await _context.Lockers.FindAsync(id);
         if (locker == null)
             return NotFound();
+
+        if (!CanDeleteAny && locker.CreatedBy != CurrentUsername)
+            return Forbid();
 
         _context.Lockers.Remove(locker);
         await _context.SaveChangesAsync();

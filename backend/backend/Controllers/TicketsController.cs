@@ -1,10 +1,13 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using OfficeManagementAPI.Data;
 using OfficeManagementAPI.Models;
+using System.Security.Claims;
 
 namespace OfficeManagementAPI.Controllers;
 
+[Authorize]
 [ApiController]
 [Route("api/[controller]")]
 public class TicketsController : ControllerBase
@@ -16,7 +19,10 @@ public class TicketsController : ControllerBase
         _context = context;
     }
 
-    // GET: api/Tickets
+    private string CurrentUsername => User.FindFirst(ClaimTypes.Name)?.Value ?? "";
+    private string CurrentRole => User.FindFirst(ClaimTypes.Role)?.Value ?? "";
+    private bool CanDeleteAny => CurrentRole == "Admin" || CurrentRole == "Manager";
+
     [HttpGet]
     public async Task<ActionResult<IEnumerable<Ticket>>> GetAll()
     {
@@ -25,7 +31,6 @@ public class TicketsController : ControllerBase
             .ToListAsync();
     }
 
-    // GET: api/Tickets/{id}
     [HttpGet("{id}")]
     public async Task<ActionResult<Ticket>> GetById(int id)
     {
@@ -35,40 +40,38 @@ public class TicketsController : ControllerBase
         return ticket;
     }
 
-    // POST: api/Tickets
     [HttpPost]
     public async Task<ActionResult<Ticket>> Create([FromBody] Ticket ticket)
     {
         if (string.IsNullOrWhiteSpace(ticket.Title))
             return BadRequest(new { message = "Title is required" });
 
+        ticket.CreatedBy = CurrentUsername;
         ticket.CreatedAt = DateTime.UtcNow;
         _context.Tickets.Add(ticket);
         await _context.SaveChangesAsync();
         return Ok(ticket);
     }
 
-    // PUT: api/Tickets/{id}
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(int id, [FromBody] Ticket ticket)
     {
-        // Check if ticket exists
         var existingTicket = await _context.Tickets.FindAsync(id);
         if (existingTicket == null)
             return NotFound(new { message = "Ticket not found" });
 
-        // Validate required fields
+        if (!CanDeleteAny && existingTicket.CreatedBy != CurrentUsername)
+            return Forbid();
+
         if (string.IsNullOrWhiteSpace(ticket.Title))
             return BadRequest(new { message = "Title is required" });
 
-        // Update fields
         existingTicket.Title = ticket.Title;
         existingTicket.Description = ticket.Description ?? string.Empty;
         existingTicket.Status = ticket.Status;
         existingTicket.Priority = ticket.Priority;
         existingTicket.AssignedTo = ticket.AssignedTo ?? string.Empty;
-        
-        // ✅ NEW FIELDS
+
         existingTicket.JiraTicket = ticket.JiraTicket ?? string.Empty;
         existingTicket.Link = ticket.Link ?? string.Empty;
         existingTicket.Amount = ticket.Amount;
@@ -80,13 +83,15 @@ public class TicketsController : ControllerBase
         return Ok(existingTicket);
     }
 
-    // DELETE: api/Tickets/{id}
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {
         var ticket = await _context.Tickets.FindAsync(id);
         if (ticket == null)
             return NotFound();
+
+        if (!CanDeleteAny && ticket.CreatedBy != CurrentUsername)
+            return Forbid();
 
         _context.Tickets.Remove(ticket);
         await _context.SaveChangesAsync();

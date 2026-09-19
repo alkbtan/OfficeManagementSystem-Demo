@@ -1,10 +1,13 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using OfficeManagementAPI.Data;
 using OfficeManagementAPI.Models;
+using System.Security.Claims;
 
 namespace OfficeManagementAPI.Controllers;
 
+[Authorize]
 [ApiController]
 [Route("api/[controller]")]
 public class ProcurementController : ControllerBase
@@ -16,7 +19,10 @@ public class ProcurementController : ControllerBase
         _context = context;
     }
 
-    // GET: api/Procurement
+    private string CurrentUsername => User.FindFirst(ClaimTypes.Name)?.Value ?? "";
+    private string CurrentRole => User.FindFirst(ClaimTypes.Role)?.Value ?? "";
+    private bool CanDeleteAny => CurrentRole == "Admin" || CurrentRole == "Manager";
+
     [HttpGet]
     public async Task<ActionResult<IEnumerable<ProcurementRequest>>> GetAll()
     {
@@ -25,7 +31,6 @@ public class ProcurementController : ControllerBase
             .ToListAsync();
     }
 
-    // GET: api/Procurement/{id}
     [HttpGet("{id}")]
     public async Task<ActionResult<ProcurementRequest>> GetById(int id)
     {
@@ -35,7 +40,6 @@ public class ProcurementController : ControllerBase
         return request;
     }
 
-    // POST: api/Procurement
     [HttpPost]
     public async Task<ActionResult<ProcurementRequest>> Create([FromBody] ProcurementRequest request)
     {
@@ -45,7 +49,6 @@ public class ProcurementController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.RequesterName))
             return BadRequest(new { message = "Requester Name is required" });
 
-        // Auto-generate request number if empty
         if (string.IsNullOrWhiteSpace(request.RequestNumber))
         {
             var year = DateTime.UtcNow.Year.ToString().Substring(2);
@@ -53,16 +56,16 @@ public class ProcurementController : ControllerBase
             request.RequestNumber = $"PR-{year}-{count:D3}";
         }
 
-        // Auto-calculate Total
         request.Total = (request.UnitPrice * request.Quantity) + request.ShippingCost;
 
-        // Normalize dates to UTC
         request.FormDate = EnsureUtc(request.FormDate);
         request.PurchaseDeadline = EnsureUtcNullable(request.PurchaseDeadline);
         request.ApprovalDate = EnsureUtcNullable(request.ApprovalDate);
         request.BoletoDueDate = EnsureUtcNullable(request.BoletoDueDate);
         request.PaymentDate = EnsureUtcNullable(request.PaymentDate);
         request.ExpectedDeliveryDate = EnsureUtcNullable(request.ExpectedDeliveryDate);
+
+        request.CreatedBy = CurrentUsername;
         request.CreatedAt = DateTime.UtcNow;
 
         _context.ProcurementRequests.Add(request);
@@ -71,7 +74,6 @@ public class ProcurementController : ControllerBase
         return Ok(request);
     }
 
-    // PUT: api/Procurement/{id}
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(int id, [FromBody] ProcurementRequest request)
     {
@@ -79,13 +81,15 @@ public class ProcurementController : ControllerBase
         if (existingRequest == null)
             return NotFound(new { message = "Procurement request not found" });
 
+        if (!CanDeleteAny && existingRequest.CreatedBy != CurrentUsername)
+            return Forbid();
+
         if (string.IsNullOrWhiteSpace(request.Item))
             return BadRequest(new { message = "Item is required" });
 
         if (string.IsNullOrWhiteSpace(request.RequesterName))
             return BadRequest(new { message = "Requester Name is required" });
 
-        // 1. Request Information
         existingRequest.RequestNumber = request.RequestNumber;
         existingRequest.Item = request.Item;
         existingRequest.ItemId = request.ItemId ?? string.Empty;
@@ -96,7 +100,6 @@ public class ProcurementController : ControllerBase
         existingRequest.Responsible = request.Responsible ?? string.Empty;
         existingRequest.BriefDescription = request.BriefDescription ?? string.Empty;
 
-        // 2. Purchase Information
         existingRequest.Supplier = request.Supplier ?? string.Empty;
         existingRequest.ProductLink = request.ProductLink ?? string.Empty;
         existingRequest.UnitPrice = request.UnitPrice;
@@ -106,26 +109,22 @@ public class ProcurementController : ControllerBase
         existingRequest.Classification = request.Classification ?? "One-Time Payment";
         existingRequest.PaymentMethod = request.PaymentMethod ?? "PIX";
 
-        // 3. Request Control
         existingRequest.Priority = request.Priority ?? "Medium";
         existingRequest.Status = request.Status ?? "Collecting Information";
         existingRequest.FormDate = EnsureUtc(request.FormDate);
         existingRequest.PurchaseDeadline = EnsureUtcNullable(request.PurchaseDeadline);
 
-        // 4. Approval
         existingRequest.ApprovedBy = request.ApprovedBy ?? string.Empty;
         existingRequest.ApprovalDate = EnsureUtcNullable(request.ApprovalDate);
         existingRequest.ApprovalDocumentPath = request.ApprovalDocumentPath ?? string.Empty;
         existingRequest.TicketLink = request.TicketLink ?? string.Empty;
 
-        // 5. Payment
         existingRequest.InvoiceNumber = request.InvoiceNumber ?? string.Empty;
         existingRequest.BoletoDueDate = EnsureUtcNullable(request.BoletoDueDate);
         existingRequest.PaymentDate = EnsureUtcNullable(request.PaymentDate);
         existingRequest.BoletoFilePath = request.BoletoFilePath ?? string.Empty;
         existingRequest.PaymentReceiptPath = request.PaymentReceiptPath ?? string.Empty;
 
-        // 6. Delivery
         existingRequest.ExpectedDeliveryDate = EnsureUtcNullable(request.ExpectedDeliveryDate);
         existingRequest.PurchaseDataFilePath = request.PurchaseDataFilePath ?? string.Empty;
 
@@ -133,7 +132,6 @@ public class ProcurementController : ControllerBase
         return Ok(existingRequest);
     }
 
-    // DELETE: api/Procurement/{id}
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {
@@ -141,12 +139,14 @@ public class ProcurementController : ControllerBase
         if (request == null)
             return NotFound();
 
+        if (!CanDeleteAny && request.CreatedBy != CurrentUsername)
+            return Forbid();
+
         _context.ProcurementRequests.Remove(request);
         await _context.SaveChangesAsync();
         return NoContent();
     }
 
-    // GET: api/Procurement/status/{status}
     [HttpGet("status/{status}")]
     public async Task<ActionResult<IEnumerable<ProcurementRequest>>> GetByStatus(string status)
     {
@@ -156,7 +156,6 @@ public class ProcurementController : ControllerBase
             .ToListAsync();
     }
 
-    // GET: api/Procurement/stats
     [HttpGet("stats")]
     public async Task<ActionResult<object>> GetStats()
     {
@@ -169,9 +168,6 @@ public class ProcurementController : ControllerBase
         return Ok(new { total, pending, approved, completed, totalAmount });
     }
 
-    // =========================================================
-    // Helpers
-    // =========================================================
     private static DateTime EnsureUtc(DateTime value)
     {
         if (value.Kind == DateTimeKind.Utc) return value;

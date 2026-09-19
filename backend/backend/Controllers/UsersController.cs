@@ -1,10 +1,13 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using OfficeManagementAPI.Data;
 using OfficeManagementAPI.Models;
+using System.Security.Claims;
 
 namespace OfficeManagementAPI.Controllers;
 
+[Authorize]
 [ApiController]
 [Route("api/[controller]")]
 public class UsersController : ControllerBase
@@ -16,31 +19,52 @@ public class UsersController : ControllerBase
         _context = context;
     }
 
-    // GET: api/Users
+    // Helper: current user info
+    private string CurrentUsername => User.FindFirst(ClaimTypes.Name)?.Value ?? "";
+    private string CurrentRole => User.FindFirst(ClaimTypes.Role)?.Value ?? "";
+    private int CurrentUserId => int.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var id) ? id : 0;
+
+    // GET: api/Users — Admin, Manager only
     [HttpGet]
+    [Authorize(Roles = "Admin,Manager")]
     public async Task<ActionResult<IEnumerable<User>>> GetAll()
     {
-        return await _context.Users
-            .OrderBy(u => u.Name)
+        var users = await _context.Users
+            .OrderBy(u => u.Username)
             .ToListAsync();
+
+        foreach (var user in users)
+            user.Password = "";
+
+        return Ok(users);
     }
 
-    // GET: api/Users/{id}
+    // GET: api/Users/{id} — Admin, Manager, or Self
     [HttpGet("{id}")]
     public async Task<ActionResult<User>> GetById(int id)
     {
         var user = await _context.Users.FindAsync(id);
         if (user == null)
             return NotFound();
-        return user;
+
+        // User can only view own profile
+        if (CurrentRole == "User" && user.Username != CurrentUsername)
+            return Forbid();
+
+        user.Password = "";
+        return Ok(user);
     }
 
-    // POST: api/Users
+    // POST: api/Users — Admin only
     [HttpPost]
+    [Authorize(Roles = "Admin")]
     public async Task<ActionResult<User>> Create([FromBody] User user)
     {
+        if (string.IsNullOrWhiteSpace(user.Username))
+            return BadRequest(new { message = "Username is required" });
+
         if (string.IsNullOrWhiteSpace(user.Name))
-            return BadRequest(new { message = "Name is required" });
+            user.Name = user.Username;
 
         if (string.IsNullOrWhiteSpace(user.Email))
             return BadRequest(new { message = "Email is required" });
@@ -48,26 +72,27 @@ public class UsersController : ControllerBase
         if (string.IsNullOrWhiteSpace(user.Password))
             return BadRequest(new { message = "Password is required" });
 
-        // Check if email already exists
-        var existing = await _context.Users
-            .FirstOrDefaultAsync(u => u.Email == user.Email);
+        var existingUsername = await _context.Users
+            .FirstOrDefaultAsync(u => u.Username == user.Username);
+        if (existingUsername != null)
+            return BadRequest(new { message = "Username already exists" });
 
-        if (existing != null)
+        var existingEmail = await _context.Users
+            .FirstOrDefaultAsync(u => u.Email == user.Email);
+        if (existingEmail != null)
             return BadRequest(new { message = "Email already exists" });
 
-        // Hash password
         user.Password = BCrypt.Net.BCrypt.HashPassword(user.Password);
         user.CreatedAt = DateTime.UtcNow;
 
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
 
-        // Don't return password
         user.Password = "";
         return Ok(user);
     }
 
-    // PUT: api/Users/{id}
+    // PUT: api/Users/{id} — Admin, Manager, or Self
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(int id, [FromBody] User user)
     {
@@ -75,26 +100,65 @@ public class UsersController : ControllerBase
         if (existingUser == null)
             return NotFound(new { message = "User not found" });
 
-        if (string.IsNullOrWhiteSpace(user.Name))
-            return BadRequest(new { message = "Name is required" });
+        // ─────────────────────────────────────────────────────
+        // Permission checks
+        // ─────────────────────────────────────────────────────
+        var isSelf = existingUser.Username == CurrentUsername;
+
+        // User: can only edit self
+        if (CurrentRole == "User" && !isSelf)
+            return Forbid();
+
+        // Manager: can't edit Admins
+        if (CurrentRole == "Manager" && existingUser.Role == "Admin" && !isSelf)
+            return Forbid();
+
+        // Manager & User: can't change roles
+        if (CurrentRole != "Admin" && user.Role != existingUser.Role)
+            return Forbid();
+
+        // Manager & User: can't change status
+        if (CurrentRole != "Admin" && user.Status != existingUser.Status)
+            return Forbid();
+
+        // Manager & User: can't change email of others (only self)
+        if (CurrentRole == "User" && !isSelf)
+            return Forbid();
+
+        // ─────────────────────────────────────────────────────
+        // Validations
+        // ─────────────────────────────────────────────────────
+        if (string.IsNullOrWhiteSpace(user.Username))
+            return BadRequest(new { message = "Username is required" });
 
         if (string.IsNullOrWhiteSpace(user.Email))
             return BadRequest(new { message = "Email is required" });
 
-        // Check if email already exists (excluding current user)
-        var existing = await _context.Users
-            .FirstOrDefaultAsync(u => u.Email == user.Email && u.Id != id);
+        var duplicateUsername = await _context.Users
+            .FirstOrDefaultAsync(u => u.Username == user.Username && u.Id != id);
+        if (duplicateUsername != null)
+            return BadRequest(new { message = "Username already exists" });
 
-        if (existing != null)
+        var duplicateEmail = await _context.Users
+            .FirstOrDefaultAsync(u => u.Email == user.Email && u.Id != id);
+        if (duplicateEmail != null)
             return BadRequest(new { message = "Email already exists" });
 
-        // Update fields
-        existingUser.Name = user.Name;
+        // ─────────────────────────────────────────────────────
+        // Apply updates
+        // ─────────────────────────────────────────────────────
+        existingUser.Username = user.Username;
+        existingUser.Name = string.IsNullOrWhiteSpace(user.Name) ? user.Username : user.Name;
         existingUser.Email = user.Email;
-        existingUser.Role = user.Role;
-        existingUser.Status = user.Status;
 
-        // Update password only if provided
+        // Only Admin can change Role
+        if (CurrentRole == "Admin")
+        {
+            existingUser.Role = user.Role;
+            existingUser.Status = user.Status;
+        }
+
+        // Password: if provided and allowed
         if (!string.IsNullOrWhiteSpace(user.Password))
         {
             existingUser.Password = BCrypt.Net.BCrypt.HashPassword(user.Password);
@@ -102,7 +166,6 @@ public class UsersController : ControllerBase
 
         await _context.SaveChangesAsync();
 
-        // Don't return password
         existingUser.Password = "";
         return Ok(existingUser);
     }
@@ -115,26 +178,40 @@ public class UsersController : ControllerBase
         if (user == null)
             return NotFound(new { message = "User not found" });
 
+        var isSelf = user.Username == CurrentUsername;
+
+        // User: can only reset own password
+        if (CurrentRole == "User" && !isSelf)
+            return Forbid();
+
+        // Manager: can't reset Admin password
+        if (CurrentRole == "Manager" && user.Role == "Admin" && !isSelf)
+            return Forbid();
+
         if (string.IsNullOrWhiteSpace(request.NewPassword))
             return BadRequest(new { message = "New password is required" });
 
         if (request.NewPassword.Length < 6)
             return BadRequest(new { message = "Password must be at least 6 characters" });
 
-        // Hash new password
         user.Password = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
         await _context.SaveChangesAsync();
 
         return Ok(new { message = "Password reset successfully" });
     }
 
-    // DELETE: api/Users/{id}
+    // DELETE: api/Users/{id} — Admin only
     [HttpDelete("{id}")]
+    [Authorize(Roles = "Admin")]
     public async Task<IActionResult> Delete(int id)
     {
         var user = await _context.Users.FindAsync(id);
         if (user == null)
             return NotFound();
+
+        // Prevent admin from deleting self
+        if (user.Username == CurrentUsername)
+            return BadRequest(new { message = "You cannot delete your own account" });
 
         _context.Users.Remove(user);
         await _context.SaveChangesAsync();
@@ -143,7 +220,6 @@ public class UsersController : ControllerBase
     }
 }
 
-// Reset password request DTO
 public class ResetPasswordRequest
 {
     public string NewPassword { get; set; } = string.Empty;

@@ -25,11 +25,13 @@ public class Employee
     [MaxLength(20)]
     public string Status { get; set; } = "Active";
 
-    // ✅ NEW FIELDS
     [MaxLength(100)]
     public string? Location { get; set; }
 
     public DateTime? Birthday { get; set; }
+
+    [MaxLength(50)]
+    public string CreatedBy { get; set; } = string.Empty;
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

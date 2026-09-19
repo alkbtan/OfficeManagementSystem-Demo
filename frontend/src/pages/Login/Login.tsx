@@ -14,19 +14,20 @@ import {
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import {
-  Email,
+  Person,
   Lock,
   Visibility,
   VisibilityOff,
 } from "@mui/icons-material";
+import { useTranslation } from "react-i18next";
 import { authService } from "../../api/auth";
 
-// Importing the logo directly using your preferred local path and .webp extension
-import Logo from "../../assets/images/testfly-logo.webp"; 
+import Logo from "../../assets/images/testfly-logo.webp";
 
 function Login() {
   const navigate = useNavigate();
-  const [email, setEmail] = useState("");
+  const { t } = useTranslation();
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -38,35 +39,20 @@ function Login() {
     setLoading(true);
 
     try {
-      const response = await authService.login({ email, password });
+      const response = await authService.login({ username, password });
 
       if (response.token) {
         localStorage.setItem("token", response.token);
         localStorage.setItem("user", JSON.stringify(response.user));
         navigate("/dashboard");
       } else {
-        setError("Invalid response from server");
+        setError(t("login.invalidResponse"));
       }
     } catch (err: any) {
       console.error("Login error:", err);
-
-      // Fallback for demo credentials
-      if (email === "admin@example.com" && password === "admin123") {
-        localStorage.setItem("token", "fake-jwt-token");
-        localStorage.setItem(
-          "user",
-          JSON.stringify({
-            id: 1,
-            name: "Admin User",
-            email: "admin@example.com",
-            role: "Admin",
-            status: "Active",
-          })
-        );
-        navigate("/dashboard");
-      } else {
-        setError(err.response?.data?.message || "Invalid email or password");
-      }
+      const message =
+        err?.response?.data?.message || t("login.invalidCredentials");
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -89,7 +75,6 @@ function Login() {
         }
       }}
     >
-      {/* Background decoration elements */}
       <Box
         sx={{
           position: "absolute",
@@ -136,7 +121,6 @@ function Login() {
             justifyContent: "center",
           }}
         >
-          {/* Subtle inner glow - Purple */}
           <Box
             sx={{
               position: "absolute",
@@ -150,7 +134,6 @@ function Login() {
             }}
           />
 
-          {/* Logo Section - Mascot and stacked clean typography */}
           <Box
             sx={{
               display: "flex",
@@ -159,7 +142,6 @@ function Login() {
               mb: 2,
             }}
           >
-            {/* Logo Mascot */}
             <Box
               component="img"
               src={Logo}
@@ -176,13 +158,12 @@ function Login() {
               }}
             />
 
-            {/* Premium Typography Stack */}
             <Box
               sx={{
                 display: "flex",
                 flexDirection: "column",
                 justifyContent: "center",
-                ml: -1, 
+                ml: -1,
                 mt: 0.5,
               }}
             >
@@ -201,7 +182,7 @@ function Login() {
               >
                 TestFlyQA
               </Typography>
-              
+
               <Typography
                 variant="caption"
                 sx={{
@@ -214,7 +195,7 @@ function Login() {
                   textTransform: "uppercase",
                 }}
               >
-                Quality Assurance Platform
+                {t("app.subtitle")}
               </Typography>
             </Box>
           </Box>
@@ -241,11 +222,10 @@ function Login() {
                 opacity: 0.8,
               }}
             >
-              SECURE ACCESS
+              {t("login.secureAccess")}
             </Typography>
           </Divider>
 
-          {/* Error Alert */}
           {error && (
             <Alert
               severity="error"
@@ -260,18 +240,18 @@ function Login() {
             </Alert>
           )}
 
-          {/* Form */}
           <form onSubmit={handleSubmit}>
             <TextField
-              label="Email Address"
-              type="email"
+              label={t("login.username")}
+              type="text"
               fullWidth
               margin="dense"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
               required
-              placeholder="admin@example.com"
+              placeholder="admin"
               variant="outlined"
+              autoComplete="username"
               sx={{
                 mb: 1.5,
                 "& .MuiInputLabel-root": {
@@ -303,14 +283,14 @@ function Login() {
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <Email sx={{ color: "#7b1fa2", fontSize: 18 }} />
+                    <Person sx={{ color: "#7b1fa2", fontSize: 18 }} />
                   </InputAdornment>
                 ),
               }}
             />
 
             <TextField
-              label="Password"
+              label={t("login.password")}
               type={showPassword ? "text" : "password"}
               fullWidth
               margin="dense"
@@ -319,6 +299,7 @@ function Login() {
               required
               placeholder="••••••••"
               variant="outlined"
+              autoComplete="current-password"
               sx={{
                 mb: 2.5,
                 "& .MuiInputLabel-root": {
@@ -400,70 +381,14 @@ function Login() {
               {loading ? (
                 <CircularProgress size={26} color="inherit" />
               ) : (
-                "Sign In"
+                t("login.signIn")
               )}
             </Button>
           </form>
 
           <Box
             sx={{
-              mt: 2.5,
-              textAlign: "center",
-            }}
-          >
-            <Typography
-              variant="body2"
-              sx={{
-                color: "rgba(123, 31, 162, 0.6)",
-                bgcolor: "rgba(123, 31, 162, 0.04)",
-                p: 1.5,
-                borderRadius: 2,
-                border: "1px solid rgba(123, 31, 162, 0.08)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 1,
-                flexWrap: "wrap",
-                fontWeight: 500,
-                fontSize: "0.8rem",
-              }}
-            >
-              <span style={{ fontWeight: 700, color: "#7b1fa2" }}>
-                Demo Credentials:
-              </span>
-              <code
-                style={{
-                  background: "rgba(123, 31, 162, 0.06)",
-                  padding: "3px 12px",
-                  borderRadius: 4,
-                  fontSize: "0.75rem",
-                  color: "#7b1fa2",
-                  fontWeight: 700,
-                  border: "1px solid rgba(123, 31, 162, 0.06)",
-                }}
-              >
-                admin@example.com
-              </code>
-              <span style={{ color: "rgba(123, 31, 162, 0.3)" }}>/</span>
-              <code
-                style={{
-                  background: "rgba(123, 31, 162, 0.06)",
-                  padding: "3px 12px",
-                  borderRadius: 4,
-                  fontSize: "0.75rem",
-                  color: "#7b1fa2",
-                  fontWeight: 700,
-                  border: "1px solid rgba(123, 31, 162, 0.06)",
-                }}
-              >
-                admin123
-              </code>
-            </Typography>
-          </Box>
-
-          <Box
-            sx={{
-              mt: 2,
+              mt: 3,
               textAlign: "center",
             }}
           >
@@ -480,13 +405,12 @@ function Login() {
                 letterSpacing: "0.5px",
               }}
             >
-              © 2026 TestFlyQA. All rights reserved.
+              {t("login.copyright")}
             </Typography>
           </Box>
         </Paper>
       </Container>
 
-      {/* Embedded Dynamic Modern Fonts & Smooth CSS Keyframes */}
       <style>
         {`
           @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');

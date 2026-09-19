@@ -26,5 +26,8 @@ public class Sport
     [MaxLength(20)]
     public string Status { get; set; } = "Pending";
 
+    [MaxLength(50)]
+    public string CreatedBy { get; set; } = string.Empty;
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

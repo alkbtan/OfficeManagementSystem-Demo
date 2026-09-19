@@ -50,6 +50,10 @@
     "details": "Detalhes",
     "required": "Obrigatório"
   },
+  "errors": {
+    "forbidden": "Você não tem permissão para fazer isso",
+    "network": "Erro de rede - verifique se o backend está em execução"
+  },
   "sidebar": {
     "dashboard": "Painel",
     "employees": "Funcionários",
@@ -69,11 +73,12 @@
   },
   "login": {
     "secureAccess": "ACESSO SEGURO",
-    "emailAddress": "Endereço de Email",
+    "username": "Usuário",
     "password": "Senha",
     "signIn": "Entrar",
-    "demoCredentials": "Credenciais de Demonstração:",
-    "copyright": "© 2026 TestFlyQA. Todos os direitos reservados."
+    "copyright": "© 2026 TestFlyQA. Todos os direitos reservados.",
+    "invalidResponse": "Resposta inválida do servidor",
+    "invalidCredentials": "Usuário ou senha inválidos"
   },
   "dashboard": {
     "title": "Painel",
@@ -298,7 +303,22 @@
     "detailedReport": "Conteúdo Detalhado do Relatório",
     "exportExcel": "Exportar Excel",
     "exportPDF": "Exportar PDF",
-    "generatedBy": "Gerado por"
+    "generatedBy": "Gerado por",
+    "date": "Data",
+    "excelExported": "Excel exportado com sucesso!",
+    "pdfExported": "PDF exportado com sucesso!",
+    "excelFailed": "Falha ao exportar Excel",
+    "pdfFailed": "Falha ao exportar PDF",
+    "failedLoad": "Falha ao carregar dados do relatório",
+    "sections": {
+      "employees": "Funcionários",
+      "assets": "Ativos",
+      "lockers": "Armários",
+      "acs": "Unidades de AC",
+      "tickets": "Chamados de Manutenção",
+      "procurement": "Compras",
+      "inventory": "Inventário"
+    }
   },
   "events": {
     "title": "Eventos",
@@ -355,6 +375,7 @@
     "admins": "Administradores",
     "activeUsers": "Usuários Ativos",
     "user": "Usuário",
+    "username": "Usuário",
     "email": "Email",
     "role": "Função",
     "newPassword": "Nova Senha",

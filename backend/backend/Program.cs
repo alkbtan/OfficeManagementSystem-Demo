@@ -62,7 +62,6 @@ builder.Services.AddSwaggerGen(c =>
         Version = "v1"
     });
 
-    // Add JWT Authentication to Swagger
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Description = "JWT Authorization header using the Bearer scheme. Example: \"Authorization: Bearer {token}\"",
@@ -109,18 +108,18 @@ using (var scope = app.Services.CreateScope())
 }
 
 // =========================================================
-// Seed Data - فقط المستخدمين الأساسيين
+// Seed Data - Default users
 // =========================================================
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
-    // Seed Users فقط
     if (!context.Users.Any())
     {
         context.Users.AddRange(
             new User
             {
+                Username = "kinoura.youssef",
                 Name = "Kinoura Youssef",
                 Email = "kinour.youssef@testflyqa.com",
                 Password = BCrypt.Net.BCrypt.HashPassword("123456"),
@@ -130,6 +129,7 @@ using (var scope = app.Services.CreateScope())
             },
             new User
             {
+                Username = "admin",
                 Name = "Admin User",
                 Email = "admin@example.com",
                 Password = BCrypt.Net.BCrypt.HashPassword("admin123"),

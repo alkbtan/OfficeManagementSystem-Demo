@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using OfficeManagementAPI.Data;
@@ -5,6 +6,7 @@ using OfficeManagementAPI.Models;
 
 namespace OfficeManagementAPI.Controllers;
 
+[Authorize]
 [ApiController]
 [Route("api/[controller]")]
 public class TasksController : ControllerBase
@@ -16,7 +18,6 @@ public class TasksController : ControllerBase
         _context = context;
     }
 
-    // GET: api/Tasks
     [HttpGet]
     public async Task<ActionResult<IEnumerable<TodoTask>>> GetAll()
     {
@@ -25,7 +26,6 @@ public class TasksController : ControllerBase
             .ToListAsync();
     }
 
-    // GET: api/Tasks/{id}
     [HttpGet("{id}")]
     public async Task<ActionResult<TodoTask>> GetById(int id)
     {
@@ -35,7 +35,6 @@ public class TasksController : ControllerBase
         return task;
     }
 
-    // POST: api/Tasks
     [HttpPost]
     public async Task<ActionResult<TodoTask>> Create([FromBody] TodoTask task)
     {
@@ -43,9 +42,7 @@ public class TasksController : ControllerBase
             return BadRequest(new { message = "Title is required" });
 
         if (task.DueDate.Kind != DateTimeKind.Utc)
-        {
             task.DueDate = DateTime.SpecifyKind(task.DueDate, DateTimeKind.Utc);
-        }
 
         task.CreatedAt = DateTime.UtcNow;
         task.Completed = false;
@@ -56,7 +53,6 @@ public class TasksController : ControllerBase
         return Ok(task);
     }
 
-    // PUT: api/Tasks/{id}
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(int id, [FromBody] TodoTask task)
     {
@@ -78,21 +74,15 @@ public class TasksController : ControllerBase
             : DateTime.SpecifyKind(task.DueDate, DateTimeKind.Utc);
         existingTask.Completed = task.Completed;
 
-        // Set/clear CompletedAt
         if (task.Completed && !wasCompleted)
-        {
             existingTask.CompletedAt = DateTime.UtcNow;
-        }
         else if (!task.Completed)
-        {
             existingTask.CompletedAt = null;
-        }
 
         await _context.SaveChangesAsync();
         return Ok(existingTask);
     }
 
-    // PUT: api/Tasks/{id}/toggle
     [HttpPut("{id}/toggle")]
     public async Task<IActionResult> ToggleComplete(int id)
     {
@@ -107,8 +97,8 @@ public class TasksController : ControllerBase
         return Ok(task);
     }
 
-    // DELETE: api/Tasks/{id}
     [HttpDelete("{id}")]
+    [Authorize(Roles = "Admin,Manager")]
     public async Task<IActionResult> Delete(int id)
     {
         var task = await _context.Tasks.FindAsync(id);
@@ -120,7 +110,6 @@ public class TasksController : ControllerBase
         return NoContent();
     }
 
-    // GET: api/Tasks/stats
     [HttpGet("stats")]
     public async Task<ActionResult<object>> GetStats()
     {

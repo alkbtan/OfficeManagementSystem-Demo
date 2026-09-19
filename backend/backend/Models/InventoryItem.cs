@@ -15,7 +15,6 @@ public class InventoryItem
     public string Category { get; set; } = string.Empty;
 
     public int Quantity { get; set; }
-
     public int MinStock { get; set; }
 
     [MaxLength(20)]
@@ -28,6 +27,9 @@ public class InventoryItem
 
     [MaxLength(20)]
     public string Status { get; set; } = "In Stock";
+
+    [MaxLength(50)]
+    public string CreatedBy { get; set; } = string.Empty;
 
     public DateTime LastUpdated { get; set; } = DateTime.UtcNow;
 }

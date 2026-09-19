@@ -1,10 +1,13 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using OfficeManagementAPI.Data;
 using OfficeManagementAPI.Models;
+using System.Security.Claims;
 
 namespace OfficeManagementAPI.Controllers;
 
+[Authorize]
 [ApiController]
 [Route("api/[controller]")]
 public class BudgetController : ControllerBase
@@ -16,10 +19,17 @@ public class BudgetController : ControllerBase
         _context = context;
     }
 
+    private string CurrentUsername => User.FindFirst(ClaimTypes.Name)?.Value ?? "";
+    private string CurrentRole => User.FindFirst(ClaimTypes.Role)?.Value ?? "";
+    private bool CanDeleteAny => CurrentRole == "Admin" || CurrentRole == "Manager";
+
     [HttpGet]
     public async Task<ActionResult<IEnumerable<Budget>>> GetAll()
     {
-        return await _context.Budgets.OrderByDescending(b => b.Year).ThenByDescending(b => b.Month).ToListAsync();
+        return await _context.Budgets
+            .OrderByDescending(b => b.Year)
+            .ThenByDescending(b => b.Month)
+            .ToListAsync();
     }
 
     [HttpGet("summary")]
@@ -49,6 +59,7 @@ public class BudgetController : ControllerBase
     [HttpPost]
     public async Task<ActionResult<Budget>> Create(Budget budget)
     {
+        budget.CreatedBy = CurrentUsername;
         budget.CreatedAt = DateTime.UtcNow;
         budget.UpdatedAt = DateTime.UtcNow;
         _context.Budgets.Add(budget);
@@ -62,6 +73,9 @@ public class BudgetController : ControllerBase
         var existing = await _context.Budgets.FindAsync(id);
         if (existing == null)
             return NotFound();
+
+        if (!CanDeleteAny && existing.CreatedBy != CurrentUsername)
+            return Forbid();
 
         existing.Category = budget.Category;
         existing.Planned = budget.Planned;
@@ -80,6 +94,9 @@ public class BudgetController : ControllerBase
         var budget = await _context.Budgets.FindAsync(id);
         if (budget == null)
             return NotFound();
+
+        if (!CanDeleteAny && budget.CreatedBy != CurrentUsername)
+            return Forbid();
 
         _context.Budgets.Remove(budget);
         await _context.SaveChangesAsync();

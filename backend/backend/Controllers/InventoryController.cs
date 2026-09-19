@@ -1,10 +1,13 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using OfficeManagementAPI.Data;
 using OfficeManagementAPI.Models;
+using System.Security.Claims;
 
 namespace OfficeManagementAPI.Controllers;
 
+[Authorize]
 [ApiController]
 [Route("api/[controller]")]
 public class InventoryController : ControllerBase
@@ -16,7 +19,10 @@ public class InventoryController : ControllerBase
         _context = context;
     }
 
-    // GET: api/Inventory
+    private string CurrentUsername => User.FindFirst(ClaimTypes.Name)?.Value ?? "";
+    private string CurrentRole => User.FindFirst(ClaimTypes.Role)?.Value ?? "";
+    private bool CanDeleteAny => CurrentRole == "Admin" || CurrentRole == "Manager";
+
     [HttpGet]
     public async Task<ActionResult<IEnumerable<InventoryItem>>> GetAll()
     {
@@ -24,16 +30,12 @@ public class InventoryController : ControllerBase
             .OrderBy(i => i.Name)
             .ToListAsync();
 
-        // ✅ Recalculate status for each item before returning
         foreach (var item in items)
-        {
             UpdateStatus(item);
-        }
 
         return items;
     }
 
-    // GET: api/Inventory/{id}
     [HttpGet("{id}")]
     public async Task<ActionResult<InventoryItem>> GetById(int id)
     {
@@ -41,13 +43,10 @@ public class InventoryController : ControllerBase
         if (item == null)
             return NotFound();
 
-        // ✅ Recalculate status
         UpdateStatus(item);
-
         return item;
     }
 
-    // POST: api/Inventory
     [HttpPost]
     public async Task<ActionResult<InventoryItem>> Create([FromBody] InventoryItem item)
     {
@@ -57,9 +56,9 @@ public class InventoryController : ControllerBase
         if (string.IsNullOrWhiteSpace(item.Category))
             return BadRequest(new { message = "Category is required" });
 
-        // ✅ Update status based on quantity and minStock
         UpdateStatus(item);
 
+        item.CreatedBy = CurrentUsername;
         item.LastUpdated = DateTime.UtcNow;
         _context.InventoryItems.Add(item);
         await _context.SaveChangesAsync();
@@ -67,7 +66,6 @@ public class InventoryController : ControllerBase
         return Ok(item);
     }
 
-    // PUT: api/Inventory/{id}
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(int id, [FromBody] InventoryItem item)
     {
@@ -75,13 +73,15 @@ public class InventoryController : ControllerBase
         if (existingItem == null)
             return NotFound(new { message = "Inventory item not found" });
 
+        if (!CanDeleteAny && existingItem.CreatedBy != CurrentUsername)
+            return Forbid();
+
         if (string.IsNullOrWhiteSpace(item.Name))
             return BadRequest(new { message = "Item Name is required" });
 
         if (string.IsNullOrWhiteSpace(item.Category))
             return BadRequest(new { message = "Category is required" });
 
-        // ✅ Update all fields
         existingItem.Name = item.Name;
         existingItem.Category = item.Category;
         existingItem.Quantity = item.Quantity;
@@ -90,17 +90,13 @@ public class InventoryController : ControllerBase
         existingItem.Supplier = item.Supplier ?? string.Empty;
         existingItem.PurchaseDate = item.PurchaseDate;
 
-        // ✅ Update status based on quantity and minStock
         UpdateStatus(existingItem);
-
         existingItem.LastUpdated = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
-        
         return Ok(existingItem);
     }
 
-    // DELETE: api/Inventory/{id}
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {
@@ -108,23 +104,22 @@ public class InventoryController : ControllerBase
         if (item == null)
             return NotFound();
 
+        if (!CanDeleteAny && item.CreatedBy != CurrentUsername)
+            return Forbid();
+
         _context.InventoryItems.Remove(item);
         await _context.SaveChangesAsync();
-
         return NoContent();
     }
 
-    // GET: api/Inventory/stats
     [HttpGet("stats")]
     public async Task<ActionResult<object>> GetStats()
     {
         var items = await _context.InventoryItems.ToListAsync();
-        
-        // ✅ Update status for all items first
+
         foreach (var item in items)
-        {
             UpdateStatus(item);
-        }
+
         await _context.SaveChangesAsync();
 
         var total = items.Count;
@@ -135,17 +130,14 @@ public class InventoryController : ControllerBase
         return Ok(new { total, lowStock, outOfStock, categories });
     }
 
-    // GET: api/Inventory/low-stock
     [HttpGet("low-stock")]
     public async Task<ActionResult<IEnumerable<InventoryItem>>> GetLowStock()
     {
         var items = await _context.InventoryItems.ToListAsync();
-        
-        // ✅ Update status for all items first
+
         foreach (var item in items)
-        {
             UpdateStatus(item);
-        }
+
         await _context.SaveChangesAsync();
 
         return await _context.InventoryItems
@@ -154,20 +146,13 @@ public class InventoryController : ControllerBase
             .ToListAsync();
     }
 
-    // ✅ Helper method to update status
     private void UpdateStatus(InventoryItem item)
     {
         if (item.Quantity <= 0)
-        {
             item.Status = "Out of Stock";
-        }
         else if (item.Quantity < item.MinStock)
-        {
             item.Status = "Low Stock";
-        }
         else
-        {
             item.Status = "In Stock";
-        }
     }
 }
